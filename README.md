@@ -10,7 +10,7 @@ const walletClient = new WalletClient(NODE_URL, FAUCET_URL);
 ```
 ### Cteate New Account 
 ```
-  let { account, mnemonic } = await walletClient.createNewAccount();
+  let { account, seed } = await walletClient.createNewAccount();
 ```
 ### Check Balance
 ```
