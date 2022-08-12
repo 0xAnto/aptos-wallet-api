@@ -4,6 +4,7 @@ const {
   FaucetClient,
   BCS,
   TxnBuilderTypes,
+  HexString,
 } = require("aptos");
 const bip39 = require("@scure/bip39");
 const english = require("@scure/bip39/wordlists/english");
@@ -33,7 +34,9 @@ export class WalletClient {
     this.client = new AptosClient(node_url);
     this.faucet = new FaucetClient(node_url, faucet_url);
   }
-
+  async airdrop(address) {
+    return Promise.resolve(await this.faucet.fundAccount(address, 20000));
+  }
   async createNewAccount() {
     const mnemonic = bip39.generateMnemonic(english.wordlist);
     const seed = bip39.mnemonicToSeedSync(mnemonic.toString());
@@ -158,6 +161,37 @@ export class WalletClient {
     }));
     return transactions;
   }
+  async transfer(account, recipient_address, amount) {
+    try {
+      if (recipient_address.toString() === account.address().toString()) {
+        return new Error("cannot transfer coins to self");
+      }
+
+      const payload = {
+        type: "script_function_payload",
+        function: "0x1::coin::transfer",
+        type_arguments: ["0x1::aptos_coin::AptosCoin"],
+
+        arguments: [
+          `${HexString.ensure(recipient_address)}`,
+          amount.toString(),
+        ],
+      };
+      const txnRequest = await this.client.generateTransaction(
+        account.address(),
+        payload,
+        {
+          max_gas_amount: "1000",
+        }
+      );
+      const signedTxn = await this.client.signTransaction(account, txnRequest);
+      const res = await this.client.submitTransaction(signedTxn);
+      await this.client.waitForTransaction(res.hash);
+      return Promise.resolve(res.hash);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
   async sendToken(fromAccount, receiverAddress, amount) {
     const token = new TypeTagStruct(
       StructTag.fromString("0x1::aptos_coin::AptosCoin")
@@ -191,5 +225,33 @@ export class WalletClient {
     const transactionRes = await this.client.submitSignedBCSTransaction(bcsTxn);
     await this.client.waitForTransaction(transactionRes.hash);
     return transactionRes.hash;
+  }
+  async getEvents(address, eventHandleStruct, fieldName) {
+    let endpointUrl = `${this.client.nodeUrl}/accounts/${address}/events/${eventHandleStruct}/${fieldName}`;
+    // if (limit) {
+    //   endpointUrl += `?limit=${limit}`;
+    // }
+    // if (start) {
+    //   endpointUrl += limit ? `&start=${start}` : `?start=${start}`;
+    // }
+    const response = await fetch(endpointUrl, {
+      method: "GET",
+    });
+
+    if (response.status === 404) {
+      return [];
+    }
+    let res = response.json();
+    return res;
+  }
+  async getAllTransactions(address, coin) {
+    let transactions = [];
+    let withdrawals = await this.getEvents(address, coin, "withdraw_events");
+    let deposits = await this.getEvents(address, coin, "deposit_events");
+    transactions.push(...withdrawals, ...deposits);
+    let sortedTransactions = transactions.sort((a, b) => {
+      return b.version - a.version;
+    });
+    return sortedTransactions;
   }
 }
