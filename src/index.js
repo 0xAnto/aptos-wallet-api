@@ -5,6 +5,7 @@ const {
   BCS,
   TxnBuilderTypes,
   HexString,
+  TokenClient,
 } = require("aptos");
 const bip39 = require("@scure/bip39");
 const english = require("@scure/bip39/wordlists/english");
@@ -29,9 +30,10 @@ const ADDRESS_GAP = 10;
 export class WalletClient {
   faucet;
   client;
-
+  token;
   constructor(node_url, faucet_url) {
     this.client = new AptosClient(node_url);
+    this.token = new TokenClient(this.client);
     this.faucet = new FaucetClient(node_url, faucet_url);
   }
   async airdrop(address) {
@@ -45,20 +47,18 @@ export class WalletClient {
       const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0/0`;
       const exKey = node.derive(derivationPath);
       const account = new AptosAccount(exKey.privateKey);
-      const address = account.authKey().toString();
-      const response = await fetch(
-        `${this.client.nodeUrl}/accounts/${address}`,
-        {
-          method: "GET",
-        }
-      );
-      if (response.status === 404) {
-        await this.faucet.fundAccount(account.authKey(), 20000);
-        return { account, mnemonic };
-      }
-      /* eslint-enable no-await-in-loop */
+
+      return { account, mnemonic };
     }
     throw new Error("Max no. of accounts reached");
+  }
+  async initialize(address) {
+    const response = await fetch(`${this.client.nodeUrl}/accounts/${address}`, {
+      method: "GET",
+    });
+    if (response.status === 404) {
+      await this.faucet.fundAccount(address, 20000);
+    }
   }
   async balance(address) {
     if (address !== "") {
@@ -253,5 +253,19 @@ export class WalletClient {
       return b.version - a.version;
     });
     return sortedTransactions;
+  }
+
+  async getTransactionDetails(version) {
+    // https://fullnode.devnet.aptoslabs.com/transactions/19957514
+    let endpointUrl = `${this.client.nodeUrl}/transactions/${version}/`;
+    const response = await fetch(endpointUrl, {
+      method: "GET",
+    });
+
+    if (response.status === 404) {
+      return [];
+    }
+    let res = response.json();
+    return res;
   }
 }
