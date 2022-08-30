@@ -33,13 +33,10 @@ export class WalletClient {
   }
   async createNewAccount() {
     const mnemonic = bip39.generateMnemonic(english.wordlist);
-    const seed = bip39.mnemonicToSeedSync(mnemonic.toString());
-    const node = HDKey.fromMasterSeed(Buffer.from(seed));
+    console.log(mnemonic);
     for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
-      const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0/0`;
-      const exKey = node.derive(derivationPath);
-      const account = new AptosAccount(exKey.privateKey);
-
+      const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
+      const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
       return { account, mnemonic };
     }
     throw new Error("Max no. of accounts reached");
@@ -123,14 +120,10 @@ export class WalletClient {
     return { code, accounts: accountMetaData };
   }
   async getAccountFromMnemonic(code) {
-    if (!bip39.validateMnemonic(code, english.wordlist)) {
-      return Promise.reject(new Error("Incorrect mnemonic passed"));
-    }
-    const seed = bip39.mnemonicToSeedSync(code.toString());
-    const node = HDKey.fromMasterSeed(Buffer.from(seed));
-    const exKey = node.derive(`m/44'/${COIN_TYPE}'/0'/0/0`);
-    const account = new AptosAccount(exKey.privateKey);
-    return account;
+    return AptosAccount.fromDerivePath(`m/44'/${COIN_TYPE}'/0'/0'/0'`, code);
+  }
+  async getAccountFromPrivateKey(privateKey, address) {
+    return new AptosAccount(privateKey, address);
   }
   async accountTransactions(accountAddress) {
     const data = await this.client.getAccountTransactions(accountAddress);
@@ -193,7 +186,6 @@ export class WalletClient {
       return Promise.reject(err);
     }
   }
-
   async getEvents(address, eventHandleStruct, fieldName) {
     let resn = await this.client.getEventsByEventHandle(
       address,
@@ -225,22 +217,6 @@ export class WalletClient {
     let res = response.json();
     return res;
   }
-  //   async registerCoin(account, coin_type_path) {
-  //     // coin_type_path: like 0x${coinTypeAddress}::moon_coin::MoonCoin
-  //     const payload = {
-  //       type: "script_function_payload",
-  //       function: "0x1::coins::register",
-  //       type_arguments: [coin_type_path],
-  //       arguments: [],
-  //     };
-
-  //     const txnHash = await this.token.submitTransactionHelper(account, payload);
-  //     const resp = await this.client.getTransaction(txnHash);
-  //     const status = { success: resp.success, vm_status: resp.vm_status };
-
-  //     return { txnHash, ...status };
-  //   }
-  // }
   async registerCoin(account, coin_type_path) {
     console.log("account, coin_type_path", account, coin_type_path);
     const token = new TxnBuilderTypes.TypeTagStruct(
@@ -271,32 +247,89 @@ export class WalletClient {
     return { txnHash, ...status };
   }
 }
+// const main = async () => {
+//   const NODE_URL =
+//     process.env.APTOS_NODE_URL || "https://fullnode.devnet.aptoslabs.com";
+//   const FAUCET_URL =
+//     process.env.APTOS_FAUCET_URL || "https://faucet.devnet.aptoslabs.com";
 
-// Payloads
-// register btc
-// {
-//   "arguments": [
-//     "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9"
-//   ],
-//   "function": "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::faucet::request",
-//   "type": "entry_function_payload",
-//   "type_arguments": [
-//     "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC"
-//   ]
-// }
-
-// usdt to apt swap
-// {
-//   "arguments": [
-//     "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9",
-//     "100000000",
-//     "42129665"
-//   ],
-//   "function": "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::scripts::swap",
-//   "type": "entry_function_payload",
-//   "type_arguments": [
-//     "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::USDT",
-//     "0x1::aptos_coin::AptosCoin",
-//     "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::lp::LP<0x1::aptos_coin::AptosCoin, 0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::USDT>"
-//   ]
-// }
+//   const walletClient = new WalletClient(NODE_URL, FAUCET_URL);
+// const account = await walletClient.createNewAccount();
+// const code =
+//   "awful punch pact rapid south robust subject hockey bomb panel arctic flat";
+// console.log(code);
+// const account = await walletClient.getAccountFromMnemonic(code);
+// const address =
+//   "0x9006e2a49f38e33267e17ba21b2554354fa23913ef90a777891824dc19c5e317";
+// const secret = new Uint8Array(64)[
+//   (95,
+//   108,
+//   76,
+//   197,
+//   88,
+//   243,
+//   86,
+//   255,
+//   9,
+//   16,
+//   185,
+//   213,
+//   192,
+//   138,
+//   234,
+//   96,
+//   228,
+//   25,
+//   216,
+//   126,
+//   180,
+//   161,
+//   238,
+//   123,
+//   200,
+//   229,
+//   124,
+//   145,
+//   75,
+//   142,
+//   179,
+//   156,
+//   47,
+//   172,
+//   102,
+//   183,
+//   40,
+//   128,
+//   75,
+//   101,
+//   21,
+//   157,
+//   231,
+//   159,
+//   8,
+//   168,
+//   118,
+//   208,
+//   181,
+//   102,
+//   9,
+//   121,
+//   125,
+//   220,
+//   31,
+//   246,
+//   5,
+//   201,
+//   121,
+//   112,
+//   38,
+//   142,
+//   159,
+//   200)
+// ];
+// const private = new Uint8Array(secret);
+// console.log(private);
+// const account = await walletClient.getAccountFromPrivateKey(secret, address);
+// console.log(account.address().toShortString());
+// };
+// main();
