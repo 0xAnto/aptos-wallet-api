@@ -9,22 +9,21 @@ const {
 } = require("aptos");
 const bip39 = require("@scure/bip39");
 const english = require("@scure/bip39/wordlists/english");
-const { HDKey } = require("@scure/bip32");
 const fetch = require("cross-fetch");
-const { Buffer } = require("buffer/");
 
 const COIN_TYPE = 637;
 const MAX_ACCOUNTS = 5;
-const ADDRESS_GAP = 10;
 
 export class WalletClient {
   faucet;
   client;
   token;
+  nodeUrl;
   constructor(node_url, faucet_url) {
     this.client = new AptosClient(node_url);
     this.token = new TokenClient(this.client);
     this.faucet = new FaucetClient(node_url, faucet_url);
+    this.nodeUrl = node_url;
   }
   async airdrop(address) {
     return Promise.resolve(
@@ -37,93 +36,30 @@ export class WalletClient {
     for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
       const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
       const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
-      return { account, mnemonic };
+      const address = HexString.ensure(account.address()).toShortString();
+      const response = await fetch(`${this.nodeUrl}/accounts/${address}`, {
+        method: "GET",
+      });
+      if (response.status === 404) {
+        await this.faucet.fundAccount(address, 0);
+        return {
+          account,
+          mnemonic,
+        };
+      }
     }
     throw new Error("Max no. of accounts reached");
   }
-  async initialize(address) {
-    let hash = await this.faucet.fundAccount(address, 1000000);
-    return hash;
-  }
-  async balance(address) {
+  async balance(coinType, address) {
     if (address !== "") {
+      // coinType like 0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>
       let resources = await this.client.getAccountResources(address);
-      console.log(resources);
-      // Find Aptos coin resource
-      let accountResource = resources.find(
-        (r) => r.type === "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
-      );
+      let accountResource = resources.find((r) => r.type === coinType);
       return parseInt(accountResource?.data.coin.value);
     }
   }
-  async importWallet(code) {
-    let flag = false;
-    let address = "";
-    let pubKey = "";
-    let derivationPath = "";
-    let authKey = "";
-    let secretKey = "";
-
-    if (!bip39.validateMnemonic(code, english.wordlist)) {
-      return Promise.reject(new Error("Incorrect mnemonic passed"));
-    }
-    const seed = bip39.mnemonicToSeedSync(code.toString());
-    const node = HDKey.fromMasterSeed(Buffer.from(seed));
-    const accountMetaData = [];
-    for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
-      flag = false;
-      address = "";
-      pubKey = "";
-      derivationPath = "";
-      authKey = "";
-      secretKey = "";
-      for (let j = 0; j < ADDRESS_GAP; j += 1) {
-        /* eslint-disable no-await-in-loop */
-        const exKey = node.derive(`m/44'/${COIN_TYPE}'/${i}'/0/${j}`);
-        let acc = new AptosAccount(exKey.privateKey);
-        if (j === 0) {
-          address = acc.authKey().toString();
-          pubKey = acc.pubKey().toString();
-          secretKey = acc.toPrivateKeyObject();
-          const response = await fetch(
-            `${this.client.nodeUrl}/accounts/${address}`,
-            {
-              method: "GET",
-            }
-          );
-          if (response.status === 404) {
-            break;
-          }
-          const respBody = await response.json();
-          authKey = respBody.authentication_key;
-        }
-        acc = new AptosAccount(exKey.privateKey, address);
-        if (acc.authKey().toString() === authKey) {
-          flag = true;
-          derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0/${j}`;
-          break;
-        }
-        /* eslint-enable no-await-in-loop */
-      }
-      if (!flag) {
-        break;
-      }
-      accountMetaData.push({
-        derivationPath,
-        address,
-        pubKey,
-        secretKey,
-      });
-    }
-    console.log("code :", code);
-    console.log("accounts", accountMetaData);
-    return { code, accounts: accountMetaData };
-  }
   async getAccountFromMnemonic(code) {
     return AptosAccount.fromDerivePath(`m/44'/${COIN_TYPE}'/0'/0'/0'`, code);
-  }
-  async getAccountFromPrivateKey(privateKey, address) {
-    return new AptosAccount(privateKey, address);
   }
   async accountTransactions(accountAddress) {
     const data = await this.client.getAccountTransactions(accountAddress);
@@ -204,9 +140,22 @@ export class WalletClient {
     });
     return sortedTransactions;
   }
-  async getTransactionDetails(version) {
+  async getTransactionDetailsByVersion(version) {
     // https://fullnode.devnet.aptoslabs.com/transactions/19957514
-    let endpointUrl = `${this.client.nodeUrl}/transactions/${version}/`;
+    let endpointUrl = `${this.nodeUrl}/transactions/${version}/`;
+    const response = await fetch(endpointUrl, {
+      method: "GET",
+    });
+
+    if (response.status === 404) {
+      return [];
+    }
+    let res = response.json();
+    return res;
+  }
+  async getTransactionDetailsByHash(hash) {
+    // https://fullnode.devnet.aptoslabs.com/transactions/19957514
+    let endpointUrl = `${this.nodeUrl}/v1/transactions/by_hash/${hash}`;
     const response = await fetch(endpointUrl, {
       method: "GET",
     });
@@ -248,19 +197,24 @@ export class WalletClient {
   }
 }
 // const main = async () => {
-//   const NODE_URL =
-//     process.env.APTOS_NODE_URL || "https://fullnode.devnet.aptoslabs.com";
-//   const FAUCET_URL =
-//     process.env.APTOS_FAUCET_URL || "https://faucet.devnet.aptoslabs.com";
+// const NODE_URL =
+//   process.env.APTOS_NODE_URL || "https://fullnode.devnet.aptoslabs.com/v1";
+// const FAUCET_URL =
+//   process.env.APTOS_FAUCET_URL || "https://faucet.devnet.aptoslabs.com";
 
-//   const walletClient = new WalletClient(NODE_URL, FAUCET_URL);
-// const account = await walletClient.createNewAccount();
+// const walletClient = new WalletClient(NODE_URL, FAUCET_URL);
+// let txns = await walletClient.getAllTransactions(
+//   "0x48133de717f538c53c86392446c209e37c9d069a83826ea0341b2af8c8e604cf",
+//   "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
+// );
+// console.log(txns);
+// const { account, mnemonic } = await walletClient.createNewAccount();
 // const code =
-//   "awful punch pact rapid south robust subject hockey bomb panel arctic flat";
-// console.log(code);
+// "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
+// // console.log(code);
 // const account = await walletClient.getAccountFromMnemonic(code);
-// const address =
-//   "0x9006e2a49f38e33267e17ba21b2554354fa23913ef90a777891824dc19c5e317";
+// // const address =
+// //   "0x9006e2a49f38e33267e17ba21b2554354fa23913ef90a777891824dc19c5e317";
 // const secret = new Uint8Array(64)[
 //   (95,
 //   108,
@@ -327,9 +281,14 @@ export class WalletClient {
 //   159,
 //   200)
 // ];
-// const private = new Uint8Array(secret);
-// console.log(private);
-// const account = await walletClient.getAccountFromPrivateKey(secret, address);
-// console.log(account.address().toShortString());
+// // const private = new Uint8Array(secret);
+// // console.log(private);
+// const account = await walletClient.getAccountFromPrivateKey(secret);
+
+// console.log(account);
+// let detail = await walletClient.getTransactionDetailsByHash(
+// "0xa76f4e50b43609b9da3089b1cc7df78bc6d85dfd45051777aa40e8495f2d3ffa"
+// );
+// console.log(detail);
 // };
 // main();
