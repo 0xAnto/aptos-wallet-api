@@ -15,7 +15,7 @@ const COIN_TYPE = 637;
 const MAX_ACCOUNTS = 5;
 const MAX_U64_BIG_INT = BigInt(2 ** 64) - 1n;
 
-class WalletClient {
+export class WalletClient {
   faucet;
   client;
   token;
@@ -26,17 +26,7 @@ class WalletClient {
     this.faucet = new FaucetClient(node_url, faucet_url);
     this.nodeUrl = node_url;
   }
-  /**
-   * airdrops test coins in the given account
-   *
-   * @param address address of the receiver's account
-   * @returns
-   */
-  async airdrop(address) {
-    return Promise.resolve(
-      await this.faucet.fundAccount(address, 1_000_000000)
-    );
-  }
+
   /**
    * Creates a new account with new seed phrase
    *
@@ -62,6 +52,7 @@ class WalletClient {
     }
     throw new Error("Max no. of accounts reached");
   }
+
   /**
    * returns all tokens available in the account with their balance
    *
@@ -87,6 +78,18 @@ class WalletClient {
   }
 
   /**
+   * airdrops test coins in the given account
+   *
+   * @param address address of the receiver's account
+   * @returns
+   */
+  async airdrop(address) {
+    return Promise.resolve(
+      await this.faucet.fundAccount(address, 1_00_000_000)
+    );
+  }
+
+  /**
    * returns an AptosAccount at position m/44'/COIN_TYPE'/0'/0/0
    *
    * @param code mnemonic phrase of the wallet
@@ -95,13 +98,13 @@ class WalletClient {
   async getAccountFromMnemonic(code) {
     return AptosAccount.fromDerivePath(`m/44'/${COIN_TYPE}'/0'/0'/0'`, code);
   }
+
   /**
-   * returns transactions of given AptosAccount
+   * returns the list of on-chain transactions sent by the said account
    *
-   * @param Address of the account
+   * @param accountAddress address of the desired account
    * @returns list of transactions
    */
-
   async accountTransactions(accountAddress) {
     const data = await this.client.getAccountTransactions(accountAddress);
     const transactions = data.map((item) => ({
@@ -120,14 +123,23 @@ class WalletClient {
     }));
     return transactions;
   }
-  async transfer(account, coin_path, recipient_address, amount) {
+
+  /**
+   * transfers Coins from signer to receiver
+   *
+   * @param account AptosAccount object of the signing account
+   * @param coinType you need to transfer
+   * @param recipient_address address of the receiver account
+   * @param amount amount of aptos coins to be transferred
+   * @returns transaction hash
+   */
+  async transfer(account, coinType, recipient_address, amount) {
     try {
       if (recipient_address.toString() === account.address().toString()) {
         return new Error("cannot transfer coins to self");
       }
       const token = new TxnBuilderTypes.TypeTagStruct(
-        // TxnBuilderTypes.StructTag.fromString("0x1::aptos_coin::AptosCoin")
-        TxnBuilderTypes.StructTag.fromString(coin_path)
+        TxnBuilderTypes.StructTag.fromString(coinType)
       );
       const entryFunctionPayload =
         new TxnBuilderTypes.TransactionPayloadEntryFunction(
@@ -162,6 +174,8 @@ class WalletClient {
       return Promise.reject(err);
     }
   }
+
+  // Estimate gas fee for given transaction
   async estimateGasUsage(account, recipient_address, amount) {
     try {
       if (recipient_address.toString() === account.address().toString()) {
@@ -199,14 +213,20 @@ class WalletClient {
       return Promise.reject(err);
     }
   }
+
+  // Signs the raw transaction
   async signTransaction(account, txnRequest) {
     return Promise.resolve(
       await this.client.signTransaction(account, txnRequest)
     );
   }
+
+  // Submits the signed transaction
   async submitTransaction(signedTxn) {
     return Promise.resolve(await this.client.submitTransaction(signedTxn));
   }
+
+  // sign and submit multiple transactions
   async signAndSubmitTransactions(account, txnRequests) {
     const hashs = [];
     for (const rawTxn of txnRequests) {
@@ -223,7 +243,6 @@ class WalletClient {
         );
         const res = await this.client.submitTransaction(signedTxn);
         await this.client.waitForTransaction(res.hash);
-        console.log(res.hash, "completed");
         hashs.push(res.hash);
       } catch (err) {
         hashs.push(err.message);
@@ -231,9 +250,20 @@ class WalletClient {
     }
     return Promise.resolve(hashs);
   }
+
+  // signs the given message
   async signMessage(account, message) {
     return Promise.resolve(account.signBuffer(Buffer.from(message)).hex());
   }
+
+  /**
+   * returns the list of events
+   *
+   * @param address address of the desired account
+   * @param eventHandleStruct struct name
+   * @param fieldName event Name
+   * @returns list of events
+   */
   async getEvents(address, eventHandleStruct, fieldName) {
     let response = await this.client.getEventsByEventHandle(
       address,
@@ -242,24 +272,45 @@ class WalletClient {
     );
     return response;
   }
-  async getAllTransactions(address, coin) {
+
+  /**
+   * returns the list of transactions from the account
+   *
+   * @param address address of the desired account
+   * @returns list of events
+   */
+  async getAllTransactions(address) {
+    let coins = [];
     let transactions = [];
-    let withdrawals = await this.getEvents(address, coin, "withdraw_events");
-    let deposits = await this.getEvents(address, coin, "deposit_events");
-    transactions.push(...withdrawals, ...deposits);
+    let coinStoreType = "0x1::coin::CoinStore";
+    let resources = await this.client.getAccountResources(address);
+    let coinResources = resources.filter((r) =>
+      r.type.startsWith(coinStoreType)
+    );
+    coinResources.forEach((resource) => coins.push(resource?.type));
+    for await (const coin of coins) {
+      let withdrawals = await this.getEvents(address, coin, "withdraw_events");
+      let deposits = await this.getEvents(address, coin, "deposit_events");
+      transactions.push(...withdrawals, ...deposits);
+    }
     let sortedTransactions = transactions.sort((a, b) => {
       return b.version - a.version;
     });
     return sortedTransactions;
   }
+
+  // Return the Transaaction details by version
   async getTransactionDetailsByVersion(version) {
     return Promise.resolve(await this.client.getTransactionByVersion(version));
   }
+
+  // Return the Transaaction details by hash
   async getTransactionDetailsByHash(hash) {
     return Promise.resolve(await this.client.getTransactionByHash(hash));
   }
+
+  // Registers a new coin
   async registerCoin(account, coin_type_path) {
-    console.log("account, coin_type_path", account, coin_type_path);
     const token = new TxnBuilderTypes.TypeTagStruct(
       TxnBuilderTypes.StructTag.fromString(coin_type_path)
     );
@@ -285,11 +336,35 @@ class WalletClient {
     const txnHash = transactionRes.hash;
     return { txnHash, ...status };
   }
+
+  /**
+   * creates an NFT collection
+   *
+   * @param account AptosAccount object of the signing account
+   * @param name collection name
+   * @param description collection description
+   * @param uri collection URI
+   * @returns transaction hash
+   */
   async createCollection(account, name, description, uri) {
     return Promise.resolve(
       await this.token.createCollection(account, name, description, uri)
     );
   }
+
+  /**
+   * creates an NFT
+   *
+   * @param account AptosAccount object of the signing account
+   * @param collection_name collection name
+   * @param name NFT name
+   * @param description NFT description
+   * @param supply supply for the NFT
+   * @param uri NFT URI
+   * @param royalty_points_per_million royalty points per million
+   * @returns transaction hash
+   */
+
   async createToken(
     account,
     collection_name,
@@ -323,6 +398,18 @@ class WalletClient {
       )
     );
   }
+
+  /**
+   * offers an NFT to another account
+   *
+   * @param account AptosAccount object of the signing account
+   * @param receiver_address address of the receiver account
+   * @param creator_address address of the creator account
+   * @param collection_name collection name
+   * @param token_name NFT name
+   * @param amount amount to receive while offering the token
+   * @returns transaction hash
+   */
   async offerToken(
     account,
     receiver_address,
@@ -344,25 +431,17 @@ class WalletClient {
       )
     );
   }
-  async cancelTokenOffer(
-    account,
-    receiver_address,
-    creator_address,
-    collection_name,
-    token_name,
-    property_version = 0
-  ) {
-    return Promise.resolve(
-      await this.token.cancelTokenOffer(
-        account,
-        receiver_address,
-        creator_address,
-        collection_name,
-        token_name,
-        property_version
-      )
-    );
-  }
+
+  /**
+   * claims offered NFT
+   *
+   * @param account AptosAccount of the signing account
+   * @param sender_address address of the sender account
+   * @param creator_address address of the creator account
+   * @param collection_name collection name
+   * @param token_name NFT name
+   * @returns transaction hash
+   */
   async claimToken(
     account,
     sender_address,
@@ -382,6 +461,37 @@ class WalletClient {
       )
     );
   }
+
+  /**
+   * cancels an NFT offer
+   *
+   * @param account AptosAccount of the signing account
+   * @param receiver_address address of the receiver account
+   * @param creator_address address of the creator account
+   * @param collection_name collection name
+   * @param token_name NFT name
+   * @returns transaction hash
+   */
+  async cancelTokenOffer(
+    account,
+    receiver_address,
+    creator_address,
+    collection_name,
+    token_name,
+    property_version = 0
+  ) {
+    return Promise.resolve(
+      await this.token.cancelTokenOffer(
+        account,
+        receiver_address,
+        creator_address,
+        collection_name,
+        token_name,
+        property_version
+      )
+    );
+  }
+
   async getTokenIds(address) {
     const countDeposit = {};
     const countWithdraw = {};
@@ -456,6 +566,14 @@ class WalletClient {
     }
     return tokenIds;
   }
+
+  /**
+   * returns the token information (including the collection information)
+   * about a said tokenID
+   *
+   * @param tokenId token ID of the desired token
+   * @returns token information
+   */
   async getToken(tokenId, resourceHandle) {
     let accountResource;
     if (!resourceHandle) {
@@ -486,147 +604,144 @@ class WalletClient {
 //
 //
 
-const main = async (netwotk) => {
-  let walletClient;
-  const NODE_URL_TEST = "https://fullnode.testnet.aptoslabs.com/v1";
-  const FAUCET_URL_TEST = "https://faucet.testnet.aptoslabs.com.";
-  const NODE_URL_DEV =
-    process.env.APTOS_NODE_URL || "https://fullnode.devnet.aptoslabs.com/v1";
-  const FAUCET_URL_DEV =
-    process.env.APTOS_FAUCET_URL || "https://faucet.devnet.aptoslabs.com";
-  if (netwotk === "devnet") {
-    walletClient = new WalletClient(NODE_URL_DEV, FAUCET_URL_DEV);
-  } else if (netwotk === "testnet") {
-    walletClient = new WalletClient(NODE_URL_TEST, FAUCET_URL_TEST);
-  }
-  // console.log("walletClient", walletClient);
-  const code =
-    "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
-  const account = await walletClient.getAccountFromMnemonic(code);
-  console.log(account.address().toShortString());
-  // await walletClient.airdrop(
-  //   "0x225f4210302db0bba77c212287ea73ef16586d3f48c7384030b4215861bd2283"
-  // );
-  // let reg = await walletClient.registerCoin(
-  //   account,
-  //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC"
-  // );
-  // console.log(reg);
-  let bal = await walletClient.balance(
-    account.address(),
-    "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC"
-  );
-  // console.log("bal", bal);
-  // let tokenIds = await walletClient.getTokenIds(account.address());
-  // tokenIds.forEach((token) => console.log(token.data));
-  // let token = await walletClient.getToken(tokenIds[0].data);
-  // console.log("token creator", tokenIds[0].data.token_data_id.creator);
-  // console.log("token", token);
-  // console.log("tokenIds", tokenIds);
-  // const collectionName = "AntosCollection";
-  // const tokenName = "Anto's 001";
-  // const txn1 = {
-  //   sender: account.address().toShortString(),
-  //   payload: {
-  //     function: "0x3::token::create_collection_script",
-  //     type_arguments: [],
-  //     arguments: [
-  //       collectionName,
-  //       "description",
-  //       "https://www.aptos.dev",
-  //       12345,
-  //       [false, false, false],
-  //     ],
-  //   },
-  // };
+// const main = async (netwotk) => {
+//   let walletClient;
+//   const NODE_URL_TEST = "https://fullnode.testnet.aptoslabs.com/v1";
+//   const FAUCET_URL_TEST = "https://faucet.testnet.aptoslabs.com.";
+//   const NODE_URL_DEV =
+//     process.env.APTOS_NODE_URL || "https://fullnode.devnet.aptoslabs.com/v1";
+//   const FAUCET_URL_DEV =
+//     process.env.APTOS_FAUCET_URL || "https://faucet.devnet.aptoslabs.com";
+//   if (netwotk === "devnet") {
+//     walletClient = new WalletClient(NODE_URL_DEV, FAUCET_URL_DEV);
+//   } else if (netwotk === "testnet") {
+//     walletClient = new WalletClient(NODE_URL_TEST, FAUCET_URL_TEST);
+//   }
+//   // console.log("walletClient", walletClient);
+//   const code =
+//     "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
+//   const account = await walletClient.getAccountFromMnemonic(code);
+//   console.log(account.address().toShortString());
+//   // await walletClient.airdrop(
+//   //   "0x225f4210302db0bba77c212287ea73ef16586d3f48c7384030b4215861bd2283"
+//   // );
+//   // let reg = await walletClient.registerCoin(
+//   //   account,
+//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC"
+//   // );
+//   // console.log(reg);
+//   let bal = await walletClient.balance(account.address());
+//   console.log("bal", bal);
+//   // let tokenIds = await walletClient.getTokenIds(account.address());
+//   // tokenIds.forEach((token) => console.log(token.data));
+//   // let token = await walletClient.getToken(tokenIds[0].data);
+//   // console.log("token creator", tokenIds[0].data.token_data_id.creator);
+//   // console.log("token", token);
+//   // console.log("tokenIds", tokenIds);
+//   // const collectionName = "AntosCollection";
+//   // const tokenName = "Anto's 001";
+//   // const txn1 = {
+//   //   sender: account.address().toShortString(),
+//   //   payload: {
+//   //     function: "0x3::token::create_collection_script",
+//   //     type_arguments: [],
+//   //     arguments: [
+//   //       collectionName,
+//   //       "description",
+//   //       "https://www.aptos.dev",
+//   //       12345,
+//   //       [false, false, false],
+//   //     ],
+//   //   },
+//   // };
 
-  // const txn2 = {
-  //   sender: account.address().toShortString(),
-  //   payload: {
-  //     function: "0x3::token::create_token_script",
-  //     type_arguments: [],
-  //     arguments: [
-  //       collectionName,
-  //       tokenName,
-  //       "token description",
-  //       1,
-  //       12345,
-  //       "https://aptos.dev/img/nyan.jpeg",
-  //       account.address().toShortString(),
-  //       0,
-  //       0,
-  //       [false, false, false, false, false],
-  //       [],
-  //       [],
-  //       [],
-  //     ],
-  //   },
-  // };
+//   // const txn2 = {
+//   //   sender: account.address().toShortString(),
+//   //   payload: {
+//   //     function: "0x3::token::create_token_script",
+//   //     type_arguments: [],
+//   //     arguments: [
+//   //       collectionName,
+//   //       tokenName,
+//   //       "token description",
+//   //       1,
+//   //       12345,
+//   //       "https://aptos.dev/img/nyan.jpeg",
+//   //       account.address().toShortString(),
+//   //       0,
+//   //       0,
+//   //       [false, false, false, false, false],
+//   //       [],
+//   //       [],
+//   //       [],
+//   //     ],
+//   //   },
+//   // };
 
-  // let txns = await walletClient.signAndSubmitTransactions(account, [
-  //   txn1,
-  //   txn2,
-  // ]);
-  // console.log(txns);
-  // let gas_estimate = await walletClient.estimateTransfer(
-  //   account,
-  //   "0xdbbccfe83ae786cf1d3d99053a5d44f6fb4f8d25a6abf63045f454231fcb01b3",
-  //   1000
-  // );
-  // console.log("gas_estimate", gas_estimate);
-  // let nftColl = await walletClient.createCollection(
-  //   account,
-  //   "Anto",
-  //   "Anto's NFT",
-  //   "Nft Uri"
-  // );
-  // console.log("nftColl", nftColl);
+//   // let txns = await walletClient.signAndSubmitTransactions(account, [
+//   //   txn1,
+//   //   txn2,
+//   // ]);
+//   // console.log(txns);
+//   // let gas_estimate = await walletClient.estimateTransfer(
+//   //   account,
+//   //   "0xdbbccfe83ae786cf1d3d99053a5d44f6fb4f8d25a6abf63045f454231fcb01b3",
+//   //   1000
+//   // );
+//   // console.log("gas_estimate", gas_estimate);
+//   // let nftColl = await walletClient.createCollection(
+//   //   account,
+//   //   "Anto",
+//   //   "Anto's NFT",
+//   //   "Nft Uri"
+//   // );
+//   // console.log("nftColl", nftColl);
 
-  // let nftTxn = await walletClient.createToken(
-  //   account,
-  //   "Anto",
-  //   "Anto's 002",
-  //   "Kana on Aptos",
-  //   10,
-  //   "https://www.kanalabs.io/static/media/kana-labs-logo.184851f66aef0526f82c829b55e37b34.svg",
-  //   10,
-  //   account.address(),
-  //   0,
-  //   0,
-  //   [],
-  //   [],
-  //   []
-  // );
-  // console.log("nftTxn", nftTxn);
-  // let txns = await walletClient.getAllTransactions(
-  //   "0x48133de717f538c53c86392446c209e37c9d069a83826ea0341b2af8c8e604cf",
-  //   "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
-  // );
-  // console.log(txns);
-  // const { account, mnemonic } = await walletClient.createNewAccount();
-  // console.log(mnemonic, account);
-  // console.log(code);
-  // const address =
-  //   "0x9006e2a49f38e33267e17ba21b2554354fa23913ef90a777891824dc19c5e317";
-  // console.log(private);
-  // const account = await walletClient.getAccountFromPrivateKey(secret);
+//   // let nftTxn = await walletClient.createToken(
+//   //   account,
+//   //   "Anto",
+//   //   "Anto's 002",
+//   //   "Kana on Aptos",
+//   //   10,
+//   //   "https://www.kanalabs.io/static/media/kana-labs-logo.184851f66aef0526f82c829b55e37b34.svg",
+//   //   10,
+//   //   account.address(),
+//   //   0,
+//   //   0,
+//   //   [],
+//   //   [],
+//   //   []
+//   // );
+//   // console.log("nftTxn", nftTxn);
+//   // let txns = await walletClient.getAllTransactions(
+//   //   account.address(),
+//   //   "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
+//   // );
+//   // console.log(txns);
+//   // const { account, mnemonic } = await walletClient.createNewAccount();
+//   // console.log(mnemonic, account);
+//   // console.log(code);
+//   // const address =
+//   //   "0x9006e2a49f38e33267e17ba21b2554354fa23913ef90a777891824dc19c5e317";
+//   // console.log(private);
+//   // const account = await walletClient.getAccountFromPrivateKey(secret);
 
-  // console.log(account.toPrivateKeyObject().privateKeyHex);
+//   // console.log(account.toPrivateKeyObject().privateKeyHex);
 
-  // let detail = await walletClient.getTransactionDetailsByHash(
-  //   "0xa76f4e50b43609b9da3089b1cc7df78bc6d85dfd45051777aa40e8495f2d3ffa"
-  // );
-  // let detail = await walletClient.getTransactionDetailsByVersion(61483556);
-  // console.log(detail);
-  // let transfer = await walletClient.transfer(
-  //   account,
-  //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC",
-  //   "0x225f4210302db0bba77c212287ea73ef16586d3f48c7384030b4215861bd2283",
-  //   300000
-  // );
-  // console.log("transfer", transfer);
-  // let signedMessage = await walletClient.signMessage(account, "Hello World");
-  // console.log("signedMessage", signedMessage);
-};
-main("devnet");
+//   // let detail = await walletClient.getTransactionDetailsByHash(
+//   //   "0xa76f4e50b43609b9da3089b1cc7df78bc6d85dfd45051777aa40e8495f2d3ffa"
+//   // );
+//   // let detail = await walletClient.getTransactionDetailsByVersion(61483556);
+//   // console.log(detail);
+//   // let transfer = await walletClient.transfer(
+//   //   account,
+//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC",
+//   //   "0x225f4210302db0bba77c212287ea73ef16586d3f48c7384030b4215861bd2283",
+//   //   300000
+//   // );
+//   // console.log("transfer", transfer);
+//   // let signedMessage = await walletClient.signMessage(account, "Hello World");
+//   // console.log("signedMessage", signedMessage);
+// };
+// main("devnet");
 // main("testnet");
