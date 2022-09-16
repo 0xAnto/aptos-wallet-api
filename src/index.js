@@ -176,13 +176,13 @@ export class WalletClient {
   }
 
   // Estimate gas fee for given transaction
-  async estimateGasUsage(account, recipient_address, amount) {
+  async estimateGasUsage(account, coinType, recipient_address, amount) {
     try {
       if (recipient_address.toString() === account.address().toString()) {
         return new Error("cannot transfer coins to self");
       }
       const token = new TxnBuilderTypes.TypeTagStruct(
-        TxnBuilderTypes.StructTag.fromString("0x1::aptos_coin::AptosCoin")
+        TxnBuilderTypes.StructTag.fromString(coinType)
       );
       const entryFunctionPayload =
         new TxnBuilderTypes.TransactionPayloadEntryFunction(
@@ -364,7 +364,6 @@ export class WalletClient {
    * @param royalty_points_per_million royalty points per million
    * @returns transaction hash
    */
-
   async createToken(
     account,
     collection_name,
@@ -451,7 +450,7 @@ export class WalletClient {
     property_version = 0
   ) {
     return Promise.resolve(
-      await this.tokenClient.claimToken(
+      await this.token.claimToken(
         account,
         sender_address,
         creator_address,
@@ -492,6 +491,7 @@ export class WalletClient {
     );
   }
 
+  // get NFT IDs of the address
   async getTokenIds(address) {
     const countDeposit = {};
     const countWithdraw = {};
@@ -622,22 +622,20 @@ export class WalletClient {
 //     "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
 //   const account = await walletClient.getAccountFromMnemonic(code);
 //   console.log(account.address().toShortString());
-//   // await walletClient.airdrop(
-//   //   "0x225f4210302db0bba77c212287ea73ef16586d3f48c7384030b4215861bd2283"
-//   // );
+//   await walletClient.airdrop(account.address());
 //   // let reg = await walletClient.registerCoin(
 //   //   account,
 //   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC"
 //   // );
 //   // console.log(reg);
-//   let bal = await walletClient.balance(account.address());
-//   console.log("bal", bal);
+//   // let bal = await walletClient.balance(account.address());
+//   // console.log("bal", bal);
 //   // let tokenIds = await walletClient.getTokenIds(account.address());
 //   // tokenIds.forEach((token) => console.log(token.data));
-//   // let token = await walletClient.getToken(tokenIds[0].data);
 //   // console.log("token creator", tokenIds[0].data.token_data_id.creator);
-//   // console.log("token", token);
 //   // console.log("tokenIds", tokenIds);
+//   // let token = await walletClient.getToken(tokenIds[0].data);
+//   // console.log("token", token);
 //   // const collectionName = "AntosCollection";
 //   // const tokenName = "Anto's 001";
 //   // const txn1 = {
@@ -678,41 +676,59 @@ export class WalletClient {
 //   //   },
 //   // };
 
+//   // let offerNFT = await walletClient.offerToken(
+//   //   account,
+//   //   "0xaf24a60cf1908918cb7ea621db0991052a5e0630c14529e3ae61a7f978b51c46",
+//   //   "0x82b94c0423cf25f6a58589f992390ec917eec0945198d9031c10cd79cedb6699",
+//   //   "Anto",
+//   //   "Anto's 001",
+//   //   1
+//   // );
+//   // console.log("offerNFT", offerNFT);
+//   // let claimNFT = await walletClient.claimToken(
+//   //   account, // Receiver account
+//   //   "0x82b94c0423cf25f6a58589f992390ec917eec0945198d9031c10cd79cedb6699", // Who offered the NFT
+//   //   "0x82b94c0423cf25f6a58589f992390ec917eec0945198d9031c10cd79cedb6699", // Creator of the NFT
+//   //   "Anto", // Collection Name
+//   //   "Anto's 001" // NFT name
+//   // );
+//   // console.log("claimNFT", claimNFT);
 //   // let txns = await walletClient.signAndSubmitTransactions(account, [
 //   //   txn1,
 //   //   txn2,
 //   // ]);
 //   // console.log(txns);
-//   // let gas_estimate = await walletClient.estimateTransfer(
+//   // let gas_usage = await walletClient.estimateGasUsage(
 //   //   account,
+//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC",
 //   //   "0xdbbccfe83ae786cf1d3d99053a5d44f6fb4f8d25a6abf63045f454231fcb01b3",
 //   //   1000
 //   // );
-//   // console.log("gas_estimate", gas_estimate);
-//   // let nftColl = await walletClient.createCollection(
+//   // console.log("gas_usage", gas_usage);
+//   // let nftCollection = await walletClient.createCollection(
 //   //   account,
 //   //   "Anto",
 //   //   "Anto's NFT",
-//   //   "Nft Uri"
+//   //   "https://twitter.com/0xAnto"
 //   // );
-//   // console.log("nftColl", nftColl);
+//   // console.log("nftCollection", nftCollection);
 
-//   // let nftTxn = await walletClient.createToken(
+//   // let mintNFT = await walletClient.createToken(
 //   //   account,
 //   //   "Anto",
-//   //   "Anto's 002",
-//   //   "Kana on Aptos",
-//   //   10,
-//   //   "https://www.kanalabs.io/static/media/kana-labs-logo.184851f66aef0526f82c829b55e37b34.svg",
-//   //   10,
+//   //   "Anto's 001",
+//   //   "Antos Aptos",
+//   //   1000,
+//   //   "https://twitter.com/0xAnto/photo",
+//   //   1000,
 //   //   account.address(),
-//   //   0,
-//   //   0,
+//   //   10,
+//   //   1,
 //   //   [],
 //   //   [],
 //   //   []
 //   // );
-//   // console.log("nftTxn", nftTxn);
+//   // console.log("mintNFT", mintNFT);
 //   // let txns = await walletClient.getAllTransactions(
 //   //   account.address(),
 //   //   "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
@@ -743,5 +759,5 @@ export class WalletClient {
 //   // let signedMessage = await walletClient.signMessage(account, "Hello World");
 //   // console.log("signedMessage", signedMessage);
 // };
-// main("devnet");
+// // main("devnet");
 // main("testnet");
