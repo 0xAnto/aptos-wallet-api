@@ -15,7 +15,7 @@ const COIN_TYPE = 637;
 const MAX_ACCOUNTS = 5;
 const MAX_U64_BIG_INT = BigInt(2 ** 64) - 1n;
 
-export class WalletClient {
+class WalletClient {
   faucet;
   client;
   token;
@@ -311,25 +311,26 @@ export class WalletClient {
 
   // Registers a new coin
   async registerCoin(account, coin_type_path) {
-    const token = new TxnBuilderTypes.TypeTagStruct(
-      TxnBuilderTypes.StructTag.fromString(coin_type_path)
-    );
+    const entryFunctionPayload = {
+      arguments: [],
+      function: "0x1::managed_coin::register",
+      type: "entry_function_payload",
+      type_arguments: [coin_type_path],
+    };
+    console.log("entryFunctionPayload", entryFunctionPayload);
 
-    const entryFunctionPayload =
-      new TxnBuilderTypes.TransactionPayloadEntryFunction(
-        TxnBuilderTypes.EntryFunction.natural(
-          "0x1::managed_coin",
-          "register",
-          [token],
-          []
-        )
-      );
-    const rawTxn = await this.client.generateRawTransaction(
+    const txnRequest = await this.client.generateTransaction(
       account.address(),
-      entryFunctionPayload
+      entryFunctionPayload,
+      {
+        max_gas_amount: "4000",
+        gas_unit_price: "100",
+      }
     );
-    const bcsTxn = AptosClient.generateBCSTransaction(account, rawTxn);
-    const transactionRes = await this.client.submitSignedBCSTransaction(bcsTxn);
+    // console.log("txnRequest :", txnRequest);
+    const signedTxn = await this.client.signTransaction(account, txnRequest);
+    // // console.log("signedTxn :", signedTxn);
+    const transactionRes = await this.client.submitTransaction(signedTxn);
     await this.client.waitForTransaction(transactionRes.hash);
     const resp = await this.client.getTransactionByHash(transactionRes.hash);
     const status = { success: resp.success, vm_status: resp.vm_status };
@@ -599,6 +600,10 @@ export class WalletClient {
   }
 }
 
+module.exports = {
+  WalletClient,
+};
+
 //
 //
 //
@@ -618,16 +623,82 @@ export class WalletClient {
 //     walletClient = new WalletClient(NODE_URL_TEST, FAUCET_URL_TEST);
 //   }
 //   // console.log("walletClient", walletClient);
-//   const code =
-//     "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
-//   const account = await walletClient.getAccountFromMnemonic(code);
+//   const { account, mnemonic } = await walletClient.createNewAccount();
+//   // console.log(mnemonic, account);
+//   let client = new AptosClient(NODE_URL_DEV);
+//   let faucet = new FaucetClient(NODE_URL_DEV, FAUCET_URL_DEV);
+//   await faucet.fundAccount(account.address(), 1000000);
+//   // const code =
+//   //   "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
+//   // const account = await walletClient.getAccountFromMnemonic(code);
 //   console.log(account.address().toShortString());
-//   await walletClient.airdrop(account.address());
+//   // await walletClient.airdrop(account.address());
+
+//   // let txPayload = {
+//   //   arguments: [],
+//   //   function: "0x1::managed_coin::register",
+//   //   type: "entry_function_payload",
+//   //   type_arguments: [
+//   //     "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC",
+//   //   ],
+//   // };
+//   // const txnRequest = await client.generateTransaction(
+//   //   account.address(),
+//   //   txPayload,
+//   //   {
+//   //     max_gas_amount: "1000",
+//   //     gas_unit_price: "100",
+//   //   }
+//   // );
+//   // console.log("txnRequest :", txnRequest);
 //   // let reg = await walletClient.registerCoin(
 //   //   account,
-//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC"
+//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::USDT"
 //   // );
 //   // console.log(reg);
+//   // const signedTxn = await client.signTransaction(account, txnRequest);
+//   // // console.log("signedTxn :", signedTxn);
+//   // const res = await client.submitTransaction(signedTxn);
+//   // await client.waitForTransactionWithResult(res.hash);
+//   // console.log(res);
+//   // const rawTxn = await client.generateRawTransaction(
+//   //   account.address(),
+//   //   txPayload
+//   // );
+//   // console.log("rawTxn", rawTxn);
+//   // const bcsTxn = AptosClient.generateBCSTransaction(account, rawTxn);
+//   // const transactionRes = await client.submitSignedBCSTransaction(bcsTxn);
+//   // await client.waitForTransactionWithResult(transactionRes.hash);
+//   // console.log("transactionRes", transactionRes);
+//   // console.log(res);
+//   // console.log("transactionRes", transactionRes);
+//   // const txnRequest = await client.generateRawTransaction(
+//   //   account.address(),
+//   //   txPayload,
+//   //   {
+//   //     maxGasAmount: "1000",
+//   //     gasUnitPrice: "100",
+//   //     expireTimestamp: Math.floor(Date.now() / 1e3) + 20,
+//   //   }
+//   // );
+//   // //   account.address(),
+//   // //   txPayload,
+//   // //   {
+//   // //     max_gas_amount: "10000",
+//   // //     gas_unit_price: "100",
+//   // //   }
+//   // // );
+//   // console.log("txnRequest :", txnRequest);
+//   // const signedTxn = await client.signTransaction(account, txnRequest);
+//   // // // // console.log("signedTxn :", signedTxn);
+//   // const res = await client.submitTransaction(signedTxn);
+//   // await client.waitForTransactionWithResult(res.hash);
+//   // console.log(res);
+//   // let reg1 = await walletClient.registerCoin(
+//   //   account,
+//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::USDT"
+//   // );
+//   // console.log(reg1);
 //   // let bal = await walletClient.balance(account.address());
 //   // console.log("bal", bal);
 //   // let tokenIds = await walletClient.getTokenIds(account.address());
@@ -641,14 +712,11 @@ export class WalletClient {
 //   // const txn1 = {
 //   //   sender: account.address().toShortString(),
 //   //   payload: {
-//   //     function: "0x3::token::create_collection_script",
-//   //     type_arguments: [],
-//   //     arguments: [
-//   //       collectionName,
-//   //       "description",
-//   //       "https://www.aptos.dev",
-//   //       12345,
-//   //       [false, false, false],
+//   //     arguments: [],
+//   //     function: "0x1::managed_coin::register",
+//   //     type: "entry_function_payload",
+//   //     type_arguments: [
+//   //       "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC",
 //   //     ],
 //   //   },
 //   // };
@@ -656,22 +724,11 @@ export class WalletClient {
 //   // const txn2 = {
 //   //   sender: account.address().toShortString(),
 //   //   payload: {
-//   //     function: "0x3::token::create_token_script",
-//   //     type_arguments: [],
-//   //     arguments: [
-//   //       collectionName,
-//   //       tokenName,
-//   //       "token description",
-//   //       1,
-//   //       12345,
-//   //       "https://aptos.dev/img/nyan.jpeg",
-//   //       account.address().toShortString(),
-//   //       0,
-//   //       0,
-//   //       [false, false, false, false, false],
-//   //       [],
-//   //       [],
-//   //       [],
+//   //     arguments: [],
+//   //     function: "0x1::managed_coin::register",
+//   //     type: "entry_function_payload",
+//   //     type_arguments: [
+//   //       "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::USDT",
 //   //     ],
 //   //   },
 //   // };
@@ -734,8 +791,6 @@ export class WalletClient {
 //   //   "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
 //   // );
 //   // console.log(txns);
-//   // const { account, mnemonic } = await walletClient.createNewAccount();
-//   // console.log(mnemonic, account);
 //   // console.log(code);
 //   // const address =
 //   //   "0x9006e2a49f38e33267e17ba21b2554354fa23913ef90a777891824dc19c5e317";
@@ -751,13 +806,13 @@ export class WalletClient {
 //   // console.log(detail);
 //   // let transfer = await walletClient.transfer(
 //   //   account,
-//   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::BTC",
-//   //   "0x225f4210302db0bba77c212287ea73ef16586d3f48c7384030b4215861bd2283",
-//   //   300000
+//   //   "0x1::aptos_coin::AptosCoin",
+//   //   "0x71400ddbb1c1cd251f9c6f1ada028db1f209c2a0951eacd14cacbc4faa5d21d0",
+//   //   888
 //   // );
 //   // console.log("transfer", transfer);
 //   // let signedMessage = await walletClient.signMessage(account, "Hello World");
 //   // console.log("signedMessage", signedMessage);
 // };
-// // main("devnet");
+// main("devnet");
 // main("testnet");
