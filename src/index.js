@@ -60,20 +60,24 @@ class WalletClient {
    * @returns list of tokens with their balance
    */
   async balance(address) {
-    if (address !== "") {
-      let coinStoreType = "0x1::coin::CoinStore";
-      let balances = [];
-      let resources = await this.client.getAccountResources(address);
-      let coinResources = resources.filter((r) =>
-        r.type.startsWith(coinStoreType)
-      );
-      coinResources.forEach((resource) =>
-        balances.push({
-          coin: resource?.type,
-          value: resource?.data?.coin?.value,
-        })
-      );
-      return balances;
+    try {
+      if (address !== "") {
+        let coinStoreType = "0x1::coin::CoinStore";
+        let balances = [];
+        let resources = await this.client.getAccountResources(address);
+        let coinResources = resources.filter((r) =>
+          r.type.startsWith(coinStoreType)
+        );
+        coinResources.forEach((resource) =>
+          balances.push({
+            coin: resource?.type,
+            value: resource?.data?.coin?.value,
+          })
+        );
+        return Promise.resolve(balances);
+      }
+    } catch (err) {
+      return Promise.reject(err);
     }
   }
 
@@ -84,9 +88,13 @@ class WalletClient {
    * @returns
    */
   async airdrop(address) {
-    return Promise.resolve(
-      await this.faucet.fundAccount(address, 1_00_000_000)
-    );
+    try {
+      return Promise.resolve(
+        await this.faucet.fundAccount(address, 1_00_000_000)
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -96,7 +104,13 @@ class WalletClient {
    * @returns AptosAccount object
    */
   async getAccountFromMnemonic(code) {
-    return AptosAccount.fromDerivePath(`m/44'/${COIN_TYPE}'/0'/0'/0'`, code);
+    try {
+      return Promise.resolve(
+        AptosAccount.fromDerivePath(`m/44'/${COIN_TYPE}'/0'/0'/0'`, code)
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -106,22 +120,26 @@ class WalletClient {
    * @returns list of transactions
    */
   async accountTransactions(accountAddress) {
-    const data = await this.client.getAccountTransactions(accountAddress);
-    const transactions = data.map((item) => ({
-      data: item.payload,
-      from: item.sender,
-      gas: item.gas_used,
-      gasPrice: item.gas_unit_price,
-      hash: item.hash,
-      success: item.success,
-      timestamp: item.timestamp,
-      toAddress: item.payload.arguments[0],
-      price: item.payload.arguments[1],
-      type: item.type,
-      version: item.version,
-      vmStatus: item.vm_status,
-    }));
-    return transactions;
+    try {
+      const data = await this.client.getAccountTransactions(accountAddress);
+      const transactions = data.map((item) => ({
+        data: item.payload,
+        from: item.sender,
+        gas: item.gas_used,
+        gasPrice: item.gas_unit_price,
+        hash: item.hash,
+        success: item.success,
+        timestamp: item.timestamp,
+        toAddress: item.payload.arguments[0],
+        price: item.payload.arguments[1],
+        type: item.type,
+        version: item.version,
+        vmStatus: item.vm_status,
+      }));
+      return Promise.resolve(transactions);
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -133,82 +151,60 @@ class WalletClient {
    * @param amount amount of aptos coins to be transferred
    * @returns transaction hash
    */
-  async transfer(account, coinType, recipient_address, amount) {
+  async transfer(account, coin, recipient_address, amount) {
     try {
       if (recipient_address.toString() === account.address().toString()) {
         return new Error("cannot transfer coins to self");
       }
-      const token = new TxnBuilderTypes.TypeTagStruct(
-        TxnBuilderTypes.StructTag.fromString(coinType)
-      );
-      const entryFunctionPayload =
-        new TxnBuilderTypes.TransactionPayloadEntryFunction(
-          TxnBuilderTypes.EntryFunction.natural(
-            "0x1::coin",
-            "transfer",
-            [token],
-            [
-              BCS.bcsToBytes(
-                TxnBuilderTypes.AccountAddress.fromHex(
-                  HexString.ensure(recipient_address).toString()
-                )
-              ),
-              BCS.bcsSerializeUint64(amount),
-            ]
-          )
-        );
+      const payload = {
+        function: "0x1::coin::transfer",
+        type_arguments: [`${coin}`],
+        arguments: [recipient_address, amount],
+      };
 
-      const rawTxn = await this.client.generateRawTransaction(
+      const rawTxn = await this.client.generateTransaction(
         account.address(),
-        entryFunctionPayload
+        payload,
+        {
+          max_gas_amount: "4000",
+          gas_unit_price: "100",
+        }
       );
 
-      const bcsTxn = AptosClient.generateBCSTransaction(account, rawTxn);
-      const transactionRes = await this.client.submitSignedBCSTransaction(
-        bcsTxn
-      );
-
-      await this.client.waitForTransaction(transactionRes.hash);
-      return await Promise.resolve(transactionRes.hash);
+      const signedTxn = await this.client.signTransaction(account, rawTxn);
+      const transaction = await this.client.submitTransaction(signedTxn);
+      await this.client.waitForTransaction(transaction.hash);
+      return await Promise.resolve(transaction.hash);
     } catch (err) {
       return Promise.reject(err);
     }
   }
 
   // Estimate gas fee for given transaction
-  async estimateGasUsage(account, coinType, recipient_address, amount) {
+  async estimateGasUsage(account, coin, recipient_address, amount) {
     try {
       if (recipient_address.toString() === account.address().toString()) {
         return new Error("cannot transfer coins to self");
       }
-      const token = new TxnBuilderTypes.TypeTagStruct(
-        TxnBuilderTypes.StructTag.fromString(coinType)
-      );
-      const entryFunctionPayload =
-        new TxnBuilderTypes.TransactionPayloadEntryFunction(
-          TxnBuilderTypes.EntryFunction.natural(
-            "0x1::coin",
-            "transfer",
-            [token],
-            [
-              BCS.bcsToBytes(
-                TxnBuilderTypes.AccountAddress.fromHex(
-                  HexString.ensure(recipient_address).toString()
-                )
-              ),
-              BCS.bcsSerializeUint64(amount),
-            ]
-          )
-        );
-      const rawTxn = await this.client.generateRawTransaction(
+      const payload = {
+        function: "0x1::coin::transfer",
+        type_arguments: [`${coin}`],
+        arguments: [recipient_address, amount],
+      };
+
+      const rawTxn = await this.client.generateTransaction(
         account.address(),
-        entryFunctionPayload
+        payload,
+        {
+          max_gas_amount: "4000",
+          gas_unit_price: "100",
+        }
       );
       const simulateResponse = await this.client.simulateTransaction(
         account,
         rawTxn
       );
-      return simulateResponse[0].gas_used;
+      return await Promise.resolve(simulateResponse[0].gas_used);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -216,6 +212,10 @@ class WalletClient {
 
   // Signs the raw transaction
   async signTransaction(account, txnRequest) {
+    try {
+    } catch (error) {
+      return Promise.reject(err);
+    }
     return Promise.resolve(
       await this.client.signTransaction(account, txnRequest)
     );
@@ -223,37 +223,49 @@ class WalletClient {
 
   // Submits the signed transaction
   async submitTransaction(signedTxn) {
-    return Promise.resolve(await this.client.submitTransaction(signedTxn));
+    try {
+      return Promise.resolve(await this.client.submitTransaction(signedTxn));
+    } catch (error) {
+      return Promise.reject(err);
+    }
   }
 
   // sign and submit multiple transactions
   async signAndSubmitTransactions(account, txnRequests) {
-    const hashs = [];
-    for (const rawTxn of txnRequests) {
-      try {
-        const txnRequest = await this.client.generateTransaction(
-          rawTxn.sender,
-          rawTxn.payload,
-          rawTxn.options
-        );
+    try {
+      const hashs = [];
+      for (const rawTxn of txnRequests) {
+        try {
+          const txnRequest = await this.client.generateTransaction(
+            rawTxn.sender,
+            rawTxn.payload,
+            rawTxn.options
+          );
 
-        const signedTxn = await this.client.signTransaction(
-          account,
-          txnRequest
-        );
-        const res = await this.client.submitTransaction(signedTxn);
-        await this.client.waitForTransaction(res.hash);
-        hashs.push(res.hash);
-      } catch (err) {
-        hashs.push(err.message);
+          const signedTxn = await this.client.signTransaction(
+            account,
+            txnRequest
+          );
+          const res = await this.client.submitTransaction(signedTxn);
+          await this.client.waitForTransaction(res.hash);
+          hashs.push(res.hash);
+        } catch (err) {
+          hashs.push(err.message);
+        }
       }
+      return Promise.resolve(hashs);
+    } catch (error) {
+      return Promise.reject(err);
     }
-    return Promise.resolve(hashs);
   }
 
   // signs the given message
   async signMessage(account, message) {
-    return Promise.resolve(account.signBuffer(Buffer.from(message)).hex());
+    try {
+      return Promise.resolve(account.signBuffer(Buffer.from(message)).hex());
+    } catch (error) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -265,12 +277,16 @@ class WalletClient {
    * @returns list of events
    */
   async getEvents(address, eventHandleStruct, fieldName) {
-    let response = await this.client.getEventsByEventHandle(
-      address,
-      eventHandleStruct,
-      fieldName
-    );
-    return response;
+    try {
+      let response = await this.client.getEventsByEventHandle(
+        address,
+        eventHandleStruct,
+        fieldName
+      );
+      return Promise.resolve(response);
+    } catch (error) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -280,62 +296,81 @@ class WalletClient {
    * @returns list of events
    */
   async getAllTransactions(address) {
-    let coins = [];
-    let transactions = [];
-    let coinStoreType = "0x1::coin::CoinStore";
-    let resources = await this.client.getAccountResources(address);
-    let coinResources = resources.filter((r) =>
-      r.type.startsWith(coinStoreType)
-    );
-    coinResources.forEach((resource) => coins.push(resource?.type));
-    for await (const coin of coins) {
-      let withdrawals = await this.getEvents(address, coin, "withdraw_events");
-      let deposits = await this.getEvents(address, coin, "deposit_events");
-      transactions.push(...withdrawals, ...deposits);
+    try {
+      let coins = [];
+      let transactions = [];
+      let coinStoreType = "0x1::coin::CoinStore";
+      let resources = await this.client.getAccountResources(address);
+      let coinResources = resources.filter((r) =>
+        r.type.startsWith(coinStoreType)
+      );
+      coinResources.forEach((resource) => coins.push(resource?.type));
+      for await (const coin of coins) {
+        let withdrawals = await this.getEvents(
+          address,
+          coin,
+          "withdraw_events"
+        );
+        let deposits = await this.getEvents(address, coin, "deposit_events");
+        transactions.push(...withdrawals, ...deposits);
+      }
+      let sortedTransactions = transactions.sort((a, b) => {
+        return b.version - a.version;
+      });
+      return await Promise.resolve(sortedTransactions);
+    } catch (error) {
+      return Promise.reject(err);
     }
-    let sortedTransactions = transactions.sort((a, b) => {
-      return b.version - a.version;
-    });
-    return sortedTransactions;
   }
 
   // Return the Transaaction details by version
   async getTransactionDetailsByVersion(version) {
-    return Promise.resolve(await this.client.getTransactionByVersion(version));
+    try {
+      return Promise.resolve(
+        await this.client.getTransactionByVersion(version)
+      );
+    } catch (error) {
+      return Promise.reject(err);
+    }
   }
 
   // Return the Transaaction details by hash
   async getTransactionDetailsByHash(hash) {
-    return Promise.resolve(await this.client.getTransactionByHash(hash));
+    try {
+      return Promise.resolve(await this.client.getTransactionByHash(hash));
+    } catch (error) {
+      return Promise.reject(err);
+    }
   }
 
   // Registers a new coin
   async registerCoin(account, coin_type_path) {
-    const entryFunctionPayload = {
-      arguments: [],
-      function: "0x1::managed_coin::register",
-      type: "entry_function_payload",
-      type_arguments: [coin_type_path],
-    };
-    console.log("entryFunctionPayload", entryFunctionPayload);
+    try {
+      const entryFunctionPayload = {
+        arguments: [],
+        function: "0x1::managed_coin::register",
+        type: "entry_function_payload",
+        type_arguments: [coin_type_path],
+      };
 
-    const txnRequest = await this.client.generateTransaction(
-      account.address(),
-      entryFunctionPayload,
-      {
-        max_gas_amount: "4000",
-        gas_unit_price: "100",
-      }
-    );
-    // console.log("txnRequest :", txnRequest);
-    const signedTxn = await this.client.signTransaction(account, txnRequest);
-    // // console.log("signedTxn :", signedTxn);
-    const transactionRes = await this.client.submitTransaction(signedTxn);
-    await this.client.waitForTransaction(transactionRes.hash);
-    const resp = await this.client.getTransactionByHash(transactionRes.hash);
-    const status = { success: resp.success, vm_status: resp.vm_status };
-    const txnHash = transactionRes.hash;
-    return { txnHash, ...status };
+      const txnRequest = await this.client.generateTransaction(
+        account.address(),
+        entryFunctionPayload,
+        {
+          max_gas_amount: "4000",
+          gas_unit_price: "100",
+        }
+      );
+      const signedTxn = await this.client.signTransaction(account, txnRequest);
+      const transactionRes = await this.client.submitTransaction(signedTxn);
+      await this.client.waitForTransaction(transactionRes.hash);
+      const resp = await this.client.getTransactionByHash(transactionRes.hash);
+      const status = { success: resp.success, vm_status: resp.vm_status };
+      const txnHash = transactionRes.hash;
+      return await Promise.resolve({ txnHash, ...status });
+    } catch (error) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -348,9 +383,13 @@ class WalletClient {
    * @returns transaction hash
    */
   async createCollection(account, name, description, uri) {
-    return Promise.resolve(
-      await this.token.createCollection(account, name, description, uri)
-    );
+    try {
+      return Promise.resolve(
+        await this.token.createCollection(account, name, description, uri)
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -380,23 +419,27 @@ class WalletClient {
     property_values = [],
     property_types = []
   ) {
-    return Promise.resolve(
-      await this.token.createToken(
-        account,
-        collection_name,
-        name,
-        description,
-        supply,
-        uri,
-        max,
-        royalty_payee_address,
-        royalty_points_denominator,
-        royalty_points_numerator,
-        property_keys,
-        property_values,
-        property_types
-      )
-    );
+    try {
+      return Promise.resolve(
+        await this.token.createToken(
+          account,
+          collection_name,
+          name,
+          description,
+          supply,
+          uri,
+          max,
+          royalty_payee_address,
+          royalty_points_denominator,
+          royalty_points_numerator,
+          property_keys,
+          property_values,
+          property_types
+        )
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -419,17 +462,21 @@ class WalletClient {
     amount,
     property_version = 0
   ) {
-    return Promise.resolve(
-      await this.token.offerToken(
-        account,
-        receiver_address,
-        creator_address,
-        collection_name,
-        token_name,
-        amount,
-        property_version
-      )
-    );
+    try {
+      return Promise.resolve(
+        await this.token.offerToken(
+          account,
+          receiver_address,
+          creator_address,
+          collection_name,
+          token_name,
+          amount,
+          property_version
+        )
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -450,16 +497,20 @@ class WalletClient {
     token_name,
     property_version = 0
   ) {
-    return Promise.resolve(
-      await this.token.claimToken(
-        account,
-        sender_address,
-        creator_address,
-        collection_name,
-        token_name,
-        property_version
-      )
-    );
+    try {
+      return Promise.resolve(
+        await this.token.claimToken(
+          account,
+          sender_address,
+          creator_address,
+          collection_name,
+          token_name,
+          property_version
+        )
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   /**
@@ -480,92 +531,100 @@ class WalletClient {
     token_name,
     property_version = 0
   ) {
-    return Promise.resolve(
-      await this.token.cancelTokenOffer(
-        account,
-        receiver_address,
-        creator_address,
-        collection_name,
-        token_name,
-        property_version
-      )
-    );
+    try {
+      return Promise.resolve(
+        await this.token.cancelTokenOffer(
+          account,
+          receiver_address,
+          creator_address,
+          collection_name,
+          token_name,
+          property_version
+        )
+      );
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 
   // get NFT IDs of the address
   async getTokenIds(address) {
-    const countDeposit = {};
-    const countWithdraw = {};
-    const elementsFetched = new Set();
-    const tokenIds = [];
+    try {
+      const countDeposit = {};
+      const countWithdraw = {};
+      const elementsFetched = new Set();
+      const tokenIds = [];
 
-    const depositEvents = await this.getEvents(
-      address,
-      "0x3::token::TokenStore",
-      "deposit_events"
-    );
+      const depositEvents = await this.getEvents(
+        address,
+        "0x3::token::TokenStore",
+        "deposit_events"
+      );
 
-    const withdrawEvents = await this.getEvents(
-      address,
-      "0x3::token::TokenStore",
-      "withdraw_events"
-    );
+      const withdrawEvents = await this.getEvents(
+        address,
+        "0x3::token::TokenStore",
+        "withdraw_events"
+      );
 
-    depositEvents.forEach((element) => {
-      const elementString = JSON.stringify(element.data.id);
-      elementsFetched.add(elementString);
-      countDeposit[elementString] = countDeposit[elementString]
-        ? {
-            count: countDeposit[elementString].count + 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          }
-        : {
-            count: 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          };
-    });
-
-    withdrawEvents.forEach((element) => {
-      const elementString = JSON.stringify(element.data.id);
-      elementsFetched.add(elementString);
-      countWithdraw[elementString] = countWithdraw[elementString]
-        ? {
-            count: countWithdraw[elementString].count + 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          }
-        : {
-            count: 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          };
-    });
-
-    if (elementsFetched) {
-      Array.from(elementsFetched).forEach((elementString) => {
-        const depositEventCount = countDeposit[elementString]
-          ? countDeposit[elementString].count
-          : 0;
-        const withdrawEventCount = countWithdraw[elementString]
-          ? countWithdraw[elementString].count
-          : 0;
-        tokenIds.push({
-          data: countDeposit[elementString]
-            ? countDeposit[elementString].data
-            : countWithdraw[elementString].data,
-          deposit_sequence_number: countDeposit[elementString]
-            ? countDeposit[elementString].sequence_number
-            : 0,
-          withdraw_sequence_number: countWithdraw[elementString]
-            ? countWithdraw[elementString].sequence_number
-            : 0,
-          difference: depositEventCount - withdrawEventCount,
-        });
+      depositEvents.forEach((element) => {
+        const elementString = JSON.stringify(element.data.id);
+        elementsFetched.add(elementString);
+        countDeposit[elementString] = countDeposit[elementString]
+          ? {
+              count: countDeposit[elementString].count + 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            }
+          : {
+              count: 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            };
       });
+
+      withdrawEvents.forEach((element) => {
+        const elementString = JSON.stringify(element.data.id);
+        elementsFetched.add(elementString);
+        countWithdraw[elementString] = countWithdraw[elementString]
+          ? {
+              count: countWithdraw[elementString].count + 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            }
+          : {
+              count: 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            };
+      });
+
+      if (elementsFetched) {
+        Array.from(elementsFetched).forEach((elementString) => {
+          const depositEventCount = countDeposit[elementString]
+            ? countDeposit[elementString].count
+            : 0;
+          const withdrawEventCount = countWithdraw[elementString]
+            ? countWithdraw[elementString].count
+            : 0;
+          tokenIds.push({
+            data: countDeposit[elementString]
+              ? countDeposit[elementString].data
+              : countWithdraw[elementString].data,
+            deposit_sequence_number: countDeposit[elementString]
+              ? countDeposit[elementString].sequence_number
+              : 0,
+            withdraw_sequence_number: countWithdraw[elementString]
+              ? countWithdraw[elementString].sequence_number
+              : 0,
+            difference: depositEventCount - withdrawEventCount,
+          });
+        });
+      }
+      return await Promise.resolve(tokenIds);
+    } catch (err) {
+      return Promise.reject(err);
     }
-    return tokenIds;
   }
 
   /**
@@ -576,35 +635,33 @@ class WalletClient {
    * @returns token information
    */
   async getToken(tokenId, resourceHandle) {
-    let accountResource;
-    if (!resourceHandle) {
-      const resources = await this.client.getAccountResources(
-        tokenId.token_data_id.creator
-      );
-      accountResource = resources.find(
-        (r) => r.type === "0x3::token::Collections"
-      );
-    }
+    try {
+      let accountResource;
+      if (!resourceHandle) {
+        const resources = await this.client.getAccountResources(
+          tokenId.token_data_id.creator
+        );
+        accountResource = resources.find(
+          (r) => r.type === "0x3::token::Collections"
+        );
+      }
 
-    const tableItemRequest = {
-      key_type: "0x3::token::TokenDataId",
-      value_type: "0x3::token::TokenData",
-      key: tokenId.token_data_id,
-    };
-    const token = await this.client.getTableItem(
-      resourceHandle || accountResource.data.token_data.handle,
-      tableItemRequest
-    );
-    token.collection = tokenId.token_data_id.collection;
-    return token;
+      const tableItemRequest = {
+        key_type: "0x3::token::TokenDataId",
+        value_type: "0x3::token::TokenData",
+        key: tokenId.token_data_id,
+      };
+      const token = await this.client.getTableItem(
+        resourceHandle || accountResource.data.token_data.handle,
+        tableItemRequest
+      );
+      token.collection = tokenId.token_data_id.collection;
+      return Promise.resolve(token);
+    } catch (err) {
+      return Promise.reject(err);
+    }
   }
 }
-
-module.exports = {
-  WalletClient,
-};
-
-//
 //
 //
 //
@@ -623,14 +680,14 @@ module.exports = {
 //     walletClient = new WalletClient(NODE_URL_TEST, FAUCET_URL_TEST);
 //   }
 //   // console.log("walletClient", walletClient);
-//   const { account, mnemonic } = await walletClient.createNewAccount();
+//   // const { account, mnemonic } = await walletClient.createNewAccount();
 //   // console.log(mnemonic, account);
-//   let client = new AptosClient(NODE_URL_DEV);
-//   let faucet = new FaucetClient(NODE_URL_DEV, FAUCET_URL_DEV);
-//   await faucet.fundAccount(account.address(), 1000000);
-//   // const code =
-//   //   "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
-//   // const account = await walletClient.getAccountFromMnemonic(code);
+//   // let client = new AptosClient(NODE_URL_DEV);
+//   // let faucet = new FaucetClient(NODE_URL_DEV, FAUCET_URL_DEV);
+//   // await faucet.fundAccount(account.address(), 1000000);
+//   const code =
+//     "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
+//   const account = await walletClient.getAccountFromMnemonic(code);
 //   console.log(account.address().toShortString());
 //   // await walletClient.airdrop(account.address());
 
@@ -699,8 +756,8 @@ module.exports = {
 //   //   "0x43417434fd869edee76cca2a4d2301e528a1551b1d719b75c350c3c97d15b8b9::coins::USDT"
 //   // );
 //   // console.log(reg1);
-//   // let bal = await walletClient.balance(account.address());
-//   // console.log("bal", bal);
+//   let bal = await walletClient.balance(account.address());
+//   console.log("bal", bal);
 //   // let tokenIds = await walletClient.getTokenIds(account.address());
 //   // tokenIds.forEach((token) => console.log(token.data));
 //   // console.log("token creator", tokenIds[0].data.token_data_id.creator);
@@ -804,7 +861,7 @@ module.exports = {
 //   // );
 //   // let detail = await walletClient.getTransactionDetailsByVersion(61483556);
 //   // console.log(detail);
-//   // let transfer = await walletClient.transfer(
+//   // let transfer = await walletClient.estimateGasUsage(
 //   //   account,
 //   //   "0x1::aptos_coin::AptosCoin",
 //   //   "0x71400ddbb1c1cd251f9c6f1ada028db1f209c2a0951eacd14cacbc4faa5d21d0",
