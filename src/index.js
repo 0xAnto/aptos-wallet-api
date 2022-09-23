@@ -164,7 +164,7 @@ export class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "4000",
+          max_gas_amount: "2000",
           gas_unit_price: "100",
         }
       );
@@ -194,7 +194,7 @@ export class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "4000",
+          max_gas_amount: "2000",
           gas_unit_price: "100",
         }
       );
@@ -355,7 +355,7 @@ export class WalletClient {
         account.address(),
         entryFunctionPayload,
         {
-          max_gas_amount: "4000",
+          max_gas_amount: "2000",
           gas_unit_price: "100",
         }
       );
@@ -720,8 +720,8 @@ export class WalletClient {
 //   // let faucet = new FaucetClient(NODE_URL_DEV, FAUCET_URL_DEV);
 //   // await faucet.fundAccount(account.address(), 1000000);
 //   const code =
-//     "shallow erode doctor job adjust fan prosper never spot moral special scatter";
-//   //   "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
+//     // "shallow erode doctor job adjust fan prosper never spot moral special scatter";
+//     "chief expand holiday act crowd wall zone amount surprise confirm grow plastic";
 //   const account = await walletClient.getAccountFromMnemonic(code);
 //   console.log(account.address().toShortString());
 //   // await walletClient.airdrop(account.address());
@@ -818,19 +818,19 @@ export class WalletClient {
 //   //   3
 //   // );
 //   // console.log("nft_hash", nft_hash);
-//   console.log("*********************************");
-//   let IDs = await walletClient.getTokenIds(account.address());
+//   // console.log("*********************************");
+//   // let IDs = await walletClient.getTokenIds(account.address());
 //   // IDs.forEach((token) => console.log(token.data));
-//   console.log(IDs.tokenIds);
-//   console.log("*********************************");
-//   console.log(IDs.maxWithdrawSequenceNumber);
-//   console.log("*********************************");
-//   console.log(IDs.maxDepositSequenceNumber);
-//   console.log("*********************************");
+//   // console.log(IDs.tokenIds);
+//   // console.log("*********************************");
+//   // console.log(IDs.maxWithdrawSequenceNumber);
+//   // console.log("*********************************");
+//   // console.log(IDs.maxDepositSequenceNumber);
+//   // console.log("*********************************");
 
-//   let token = await walletClient.getToken(IDs.tokenIds[0].data);
-//   console.log("token", token);
-//   console.log("*********************************");
+//   // let token = await walletClient.getToken(IDs.tokenIds[0].data);
+//   // console.log("token", token);
+//   // console.log("*********************************");
 //   // const txn1 = {
 //   //   sender: account.address().toShortString(),
 //   //   payload: {
@@ -926,22 +926,22 @@ export class WalletClient {
 //   // let detail = await walletClient.getTransactionDetailsByHash(
 //   //   "0xa76f4e50b43609b9da3089b1cc7df78bc6d85dfd45051777aa40e8495f2d3ffa"
 //   // );
-//   let detail = await walletClient.getTransactionDetailsByVersion(3556);
-//   console.log(detail);
-//   console.log("*********************************");
+//   // let detail = await walletClient.getTransactionDetailsByVersion(3556);
+//   // console.log(detail);
+//   // console.log("*********************************");
 
-//   let transfer = await walletClient.estimateGasUsage(
-//     account,
-//     "0x1::aptos_coin::AptosCoin",
-//     "0x71400ddbb1c1cd251f9c6f1ada028db1f209c2a0951eacd14cacbc4faa5d21d0",
-//     888
-//   );
-//   console.log("transfer", transfer);
-//   console.log("*********************************");
+//   // let transfer = await walletClient.estimateGasUsage(
+//   //   account,
+//   //   "0x1::aptos_coin::AptosCoin",
+//   //   "0x71400ddbb1c1cd251f9c6f1ada028db1f209c2a0951eacd14cacbc4faa5d21d0",
+//   //   888
+//   // );
+//   // console.log("transfer", transfer);
+//   // console.log("*********************************");
 
-//   let signedMessage = await walletClient.signMessage(account, "Hello World");
-//   console.log("signedMessage", signedMessage);
-//   console.log("*********************************");
+//   // let signedMessage = await walletClient.signMessage(account, "Hello World");
+//   // console.log("signedMessage", signedMessage);
+//   // console.log("*********************************");
 // };
 // main("devnet");
 // main("testnet");
