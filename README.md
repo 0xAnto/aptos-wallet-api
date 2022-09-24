@@ -149,5 +149,5 @@ let mintNFT = await walletClient.createToken(
 ### Account Transactions
 
 ```
- let txns = await walletClient.getAllTransactions(address, coin);
+ let txns = await walletClient.getAllTransactions(address);
 ```
