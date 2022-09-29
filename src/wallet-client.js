@@ -13,7 +13,7 @@ const COIN_TYPE = 637;
 const MAX_ACCOUNTS = 5;
 const MAX_U64_BIG_INT = BigInt(2 ** 64) - 1n;
 
-export class WalletClient {
+module.exports = class WalletClient {
   faucet;
   client;
   token;
@@ -695,4 +695,4 @@ export class WalletClient {
       return Promise.reject(err);
     }
   }
-}
+};
