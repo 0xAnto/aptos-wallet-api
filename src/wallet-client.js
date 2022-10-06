@@ -10,7 +10,6 @@ const english = require("@scure/bip39/wordlists/english");
 const fetch = require("cross-fetch");
 
 const COIN_TYPE = 637;
-const MAX_ACCOUNTS = 5;
 const MAX_U64_BIG_INT = BigInt(2 ** 64) - 1n;
 
 module.exports = class WalletClient {
@@ -32,23 +31,25 @@ module.exports = class WalletClient {
    * @returns AptosAccount object, mnemonic
    */
   async createNewAccount() {
-    const mnemonic = bip39.generateMnemonic(english.wordlist);
-    for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
-      const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
+    try {
+      const mnemonic = bip39.generateMnemonic(english.wordlist);
+      const derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/0'`;
       const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
       const address = HexString.ensure(account.address()).toShortString();
       const response = await fetch(`${this.nodeUrl}/accounts/${address}`, {
         method: "GET",
       });
       if (response.status === 404) {
-        await this.faucet.fundAccount(address, 0);
-        return {
-          account,
+        await this.airdrop(address, 0);
+        return Promise.resolve({
+          derivationPath,
           mnemonic,
-        };
+          account,
+        });
       }
+    } catch (err) {
+      return Promise.reject(err);
     }
-    throw new Error("Max no. of accounts reached");
   }
 
   /**
@@ -126,13 +127,23 @@ module.exports = class WalletClient {
    * returns an AptosAccount at position m/44'/COIN_TYPE'/0'/0/0
    *
    * @param code mnemonic phrase of the wallet
+   * @param derivationValue derivation path value
    * @returns AptosAccount object
    */
-  async getAccountFromMnemonic(code) {
+
+  async getAccountFromMnemonic(mnemonic, derivationValue) {
     try {
-      return Promise.resolve(
-        AptosAccount.fromDerivePath(`m/44'/${COIN_TYPE}'/0'/0'/0'`, code)
-      );
+      const derivationPath = `m/44'/${COIN_TYPE}'/${derivationValue}'/0'/0'`;
+      const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
+      const address = account.address().toShortString();
+      const response = await fetch(`${this.nodeUrl}/accounts/${address}`, {
+        method: "GET",
+      });
+      if (response.status == 404) {
+        await this.airdrop(address, 0);
+      }
+
+      return Promise.resolve({ derivationPath, mnemonic, account });
     } catch (err) {
       return Promise.reject(err);
     }
