@@ -78,6 +78,33 @@ module.exports = class WalletClient {
       return Promise.reject(err);
     }
   }
+  /**
+   * checks if the receiver has the resource or not
+   * @param receiver_address receiver address
+   * @param coin resourece type
+   * @returns bool
+   */
+  async verifyResource(address, coin) {
+    try {
+      if (address !== "") {
+        let coinStoreType = "0x1::coin::CoinStore";
+        let isRegistered = false;
+        let resources = await this.client.getAccountResources(address);
+        let coinResources = resources.filter((r) =>
+          r.type.startsWith(coinStoreType)
+        );
+        coinResources.forEach((resource) => {
+          if (resource.type.includes(coin)) {
+            isRegistered = true;
+            return;
+          }
+        });
+        return Promise.resolve(isRegistered);
+      } else return "Address not valid";
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
 
   /**
    * airdrops test coins in the given account
