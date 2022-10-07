@@ -119,9 +119,10 @@ module.exports = class WalletClient {
    */
   async airdrop(address) {
     try {
-      await this.faucet.fundAccount(address, 1_00_000_000);
+      let hash = await this.faucet.fundAccount(address, 1_00_000_000);
       return {
         success: true,
+        hash,
       };
     } catch (err) {
       return {
