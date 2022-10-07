@@ -35,20 +35,15 @@ module.exports = class WalletClient {
       const mnemonic = bip39.generateMnemonic(english.wordlist);
       const derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/0'`;
       const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
-      const address = HexString.ensure(account.address()).toShortString();
-      const response = await fetch(`${this.nodeUrl}/accounts/${address}`, {
-        method: "GET",
-      });
-      if (response.status === 404) {
-        await this.airdrop(address, 0);
-        return Promise.resolve({
-          derivationPath,
-          mnemonic,
-          account,
-        });
-      }
+      return {
+        success: true,
+        account,
+      };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -73,10 +68,16 @@ module.exports = class WalletClient {
             value: resource?.data?.coin?.value,
           })
         );
-        return Promise.resolve(balances);
+        return {
+          success: true,
+          balances,
+        };
       }
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
   /**
@@ -100,10 +101,13 @@ module.exports = class WalletClient {
             return;
           }
         });
-        return Promise.resolve(isRegistered);
-      } else return "Address not valid";
+        return { success: true, isRegistered };
+      } else return { success: false, Error: "Address not valid" };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -115,11 +119,15 @@ module.exports = class WalletClient {
    */
   async airdrop(address) {
     try {
-      return Promise.resolve(
-        await this.faucet.fundAccount(address, 1_00_000_000)
-      );
+      await this.faucet.fundAccount(address, 1_00_000_000);
+      return {
+        success: true,
+      };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -135,17 +143,12 @@ module.exports = class WalletClient {
     try {
       const derivationPath = `m/44'/${COIN_TYPE}'/${derivationValue}'/0'/0'`;
       const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
-      const address = account.address().toShortString();
-      const response = await fetch(`${this.nodeUrl}/accounts/${address}`, {
-        method: "GET",
-      });
-      if (response.status == 404) {
-        await this.airdrop(address, 0);
-      }
-
-      return Promise.resolve({ derivationPath, mnemonic, account });
+      return Promise.resolve({ success: true, account });
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -172,9 +175,12 @@ module.exports = class WalletClient {
         version: item.version,
         vmStatus: item.vm_status,
       }));
-      return Promise.resolve(transactions);
+      return { success: true, transactions };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -210,9 +216,12 @@ module.exports = class WalletClient {
       const signedTxn = await this.client.signTransaction(account, rawTxn);
       const transaction = await this.client.submitTransaction(signedTxn);
       await this.client.waitForTransaction(transaction.hash);
-      return await Promise.resolve(transaction.hash);
+      return { success: true, hash: transaction.hash };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -240,21 +249,27 @@ module.exports = class WalletClient {
         account,
         rawTxn
       );
-      return await Promise.resolve(simulateResponse[0].gas_used);
+      return { success: true, gas_used: simulateResponse[0].gas_used };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
   // Signs the raw transaction
   async signTransaction(account, txnRequest) {
     try {
+      return Promise.resolve(
+        await this.client.signTransaction(account, txnRequest)
+      );
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
-    return Promise.resolve(
-      await this.client.signTransaction(account, txnRequest)
-    );
   }
 
   // Submits the signed transaction
@@ -262,7 +277,10 @@ module.exports = class WalletClient {
     try {
       return Promise.resolve(await this.client.submitTransaction(signedTxn));
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -286,12 +304,18 @@ module.exports = class WalletClient {
           await this.client.waitForTransaction(res.hash);
           hashs.push(res.hash);
         } catch (err) {
-          hashs.push(err.message);
+          return {
+            success: false,
+            err,
+          };
         }
       }
       return Promise.resolve(hashs);
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -300,7 +324,10 @@ module.exports = class WalletClient {
     try {
       return Promise.resolve(account.signBuffer(Buffer.from(message)).hex());
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -321,7 +348,10 @@ module.exports = class WalletClient {
       );
       return Promise.resolve(response);
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -353,29 +383,42 @@ module.exports = class WalletClient {
       let sortedTransactions = transactions.sort((a, b) => {
         return b.version - a.version;
       });
-      return await Promise.resolve(sortedTransactions);
+      return { success: true, transactions: sortedTransactions };
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
   // Return the Transaaction details by version
   async getTransactionDetailsByVersion(version) {
     try {
-      return Promise.resolve(
-        await this.client.getTransactionByVersion(version)
-      );
+      return Promise.resolve({
+        success: true,
+        transactionDetail: await this.client.getTransactionByVersion(version),
+      });
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
   // Return the Transaaction details by hash
   async getTransactionDetailsByHash(hash) {
     try {
-      return Promise.resolve(await this.client.getTransactionByHash(hash));
+      return Promise.resolve({
+        success: true,
+        transactionDetail: await this.client.getTransactionByHash(hash),
+      });
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -400,12 +443,12 @@ module.exports = class WalletClient {
       const signedTxn = await this.client.signTransaction(account, txnRequest);
       const transactionRes = await this.client.submitTransaction(signedTxn);
       await this.client.waitForTransaction(transactionRes.hash);
-      const resp = await this.client.getTransactionByHash(transactionRes.hash);
-      const status = { success: resp.success, vm_status: resp.vm_status };
-      const txnHash = transactionRes.hash;
-      return await Promise.resolve({ txnHash, ...status });
+      return await Promise.resolve({ success: true, hash: txnHash });
     } catch (error) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -420,11 +463,20 @@ module.exports = class WalletClient {
    */
   async createCollection(account, name, description, uri) {
     try {
-      return Promise.resolve(
-        await this.token.createCollection(account, name, description, uri)
-      );
+      return Promise.resolve({
+        success: true,
+        collectionDetail: await this.token.createCollection(
+          account,
+          name,
+          description,
+          uri
+        ),
+      });
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -456,8 +508,9 @@ module.exports = class WalletClient {
     property_types = []
   ) {
     try {
-      return Promise.resolve(
-        await this.token.createToken(
+      return Promise.resolve({
+        success: true,
+        tokenDetail: await this.token.createToken(
           account,
           collection_name,
           name,
@@ -471,10 +524,13 @@ module.exports = class WalletClient {
           property_keys,
           property_values,
           property_types
-        )
-      );
+        ),
+      });
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -499,8 +555,9 @@ module.exports = class WalletClient {
     property_version = 0
   ) {
     try {
-      return Promise.resolve(
-        await this.token.offerToken(
+      return Promise.resolve({
+        success: true,
+        offerDetail: await this.token.offerToken(
           account,
           receiver_address,
           creator_address,
@@ -508,10 +565,13 @@ module.exports = class WalletClient {
           token_name,
           amount,
           property_version
-        )
-      );
+        ),
+      });
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -534,18 +594,22 @@ module.exports = class WalletClient {
     property_version = 0
   ) {
     try {
-      return Promise.resolve(
-        await this.token.claimToken(
+      return Promise.resolve({
+        success: true,
+        claimDetail: await this.token.claimToken(
           account,
           sender_address,
           creator_address,
           collection_name,
           token_name,
           property_version
-        )
-      );
+        ),
+      });
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -568,18 +632,22 @@ module.exports = class WalletClient {
     property_version = 0
   ) {
     try {
-      return Promise.resolve(
-        await this.token.cancelTokenOffer(
+      return Promise.resolve({
+        success: true,
+        cancelOfferDetail: await this.token.cancelTokenOffer(
           account,
           receiver_address,
           creator_address,
           collection_name,
           token_name,
           property_version
-        )
-      );
+        ),
+      });
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -601,7 +669,7 @@ module.exports = class WalletClient {
       return [];
     }
 
-    return Promise.resolve(await response.json());
+    return response.json();
   }
 
   /**
@@ -612,91 +680,103 @@ module.exports = class WalletClient {
    * @returns list of token IDs
    */
   async getTokenIds(address) {
-    const countDeposit = {};
-    const countWithdraw = {};
-    const elementsFetched = new Set();
-    const tokenIds = [];
+    try {
+      const countDeposit = {};
+      const countWithdraw = {};
+      const elementsFetched = new Set();
+      const tokenIds = [];
 
-    const depositEvents = await this.getEventStream(
-      address,
-      "0x3::token::TokenStore",
-      "deposit_events"
-    );
-
-    const withdrawEvents = await this.getEventStream(
-      address,
-      "0x3::token::TokenStore",
-      "withdraw_events"
-    );
-
-    let maxDepositSequenceNumber = -1;
-    let maxWithdrawSequenceNumber = -1;
-
-    depositEvents.forEach((element) => {
-      const elementString = JSON.stringify(element.data.id);
-      elementsFetched.add(elementString);
-      countDeposit[elementString] = countDeposit[elementString]
-        ? {
-            count: countDeposit[elementString].count + 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          }
-        : {
-            count: 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          };
-
-      maxDepositSequenceNumber = Math.max(
-        maxDepositSequenceNumber,
-        parseInt(element.sequence_number, 10)
+      const depositEvents = await this.getEventStream(
+        address,
+        "0x3::token::TokenStore",
+        "deposit_events"
       );
-    });
 
-    withdrawEvents.forEach((element) => {
-      const elementString = JSON.stringify(element.data.id);
-      elementsFetched.add(elementString);
-      countWithdraw[elementString] = countWithdraw[elementString]
-        ? {
-            count: countWithdraw[elementString].count + 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          }
-        : {
-            count: 1,
-            sequence_number: element.sequence_number,
-            data: element.data.id,
-          };
-
-      maxWithdrawSequenceNumber = Math.max(
-        maxWithdrawSequenceNumber,
-        parseInt(element.sequence_number, 10)
+      const withdrawEvents = await this.getEventStream(
+        address,
+        "0x3::token::TokenStore",
+        "withdraw_events"
       );
-    });
 
-    if (elementsFetched) {
-      Array.from(elementsFetched).forEach((elementString) => {
-        const depositEventCount = countDeposit[elementString]
-          ? countDeposit[elementString].count
-          : 0;
-        const withdrawEventCount = countWithdraw[elementString]
-          ? countWithdraw[elementString].count
-          : 0;
-        tokenIds.push({
-          data: countDeposit[elementString]
-            ? countDeposit[elementString].data
-            : countWithdraw[elementString].data,
-          deposit_sequence_number: countDeposit[elementString]
-            ? countDeposit[elementString].sequence_number
-            : "-1",
-          withdraw_sequence_number: countWithdraw[elementString]
-            ? countWithdraw[elementString].sequence_number
-            : "-1",
-          difference: depositEventCount - withdrawEventCount,
-        });
+      let maxDepositSequenceNumber = -1;
+      let maxWithdrawSequenceNumber = -1;
+
+      depositEvents.forEach((element) => {
+        const elementString = JSON.stringify(element.data.id);
+        elementsFetched.add(elementString);
+        countDeposit[elementString] = countDeposit[elementString]
+          ? {
+              count: countDeposit[elementString].count + 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            }
+          : {
+              count: 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            };
+
+        maxDepositSequenceNumber = Math.max(
+          maxDepositSequenceNumber,
+          parseInt(element.sequence_number, 10)
+        );
       });
+
+      withdrawEvents.forEach((element) => {
+        const elementString = JSON.stringify(element.data.id);
+        elementsFetched.add(elementString);
+        countWithdraw[elementString] = countWithdraw[elementString]
+          ? {
+              count: countWithdraw[elementString].count + 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            }
+          : {
+              count: 1,
+              sequence_number: element.sequence_number,
+              data: element.data.id,
+            };
+
+        maxWithdrawSequenceNumber = Math.max(
+          maxWithdrawSequenceNumber,
+          parseInt(element.sequence_number, 10)
+        );
+      });
+
+      if (elementsFetched) {
+        Array.from(elementsFetched).forEach((elementString) => {
+          const depositEventCount = countDeposit[elementString]
+            ? countDeposit[elementString].count
+            : 0;
+          const withdrawEventCount = countWithdraw[elementString]
+            ? countWithdraw[elementString].count
+            : 0;
+          tokenIds.push({
+            data: countDeposit[elementString]
+              ? countDeposit[elementString].data
+              : countWithdraw[elementString].data,
+            deposit_sequence_number: countDeposit[elementString]
+              ? countDeposit[elementString].sequence_number
+              : "-1",
+            withdraw_sequence_number: countWithdraw[elementString]
+              ? countWithdraw[elementString].sequence_number
+              : "-1",
+            difference: depositEventCount - withdrawEventCount,
+          });
+        });
+      }
+      return {
+        success: true,
+        tokenIds,
+        maxDepositSequenceNumber,
+        maxWithdrawSequenceNumber,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        err,
+      };
     }
-    return { tokenIds, maxDepositSequenceNumber, maxWithdrawSequenceNumber };
   }
 
   /**
@@ -728,9 +808,12 @@ module.exports = class WalletClient {
         tableItemRequest
       );
       token.collection = tokenId.token_data_id.collection;
-      return Promise.resolve(token);
+      return { success: true, token };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 };
