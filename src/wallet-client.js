@@ -265,7 +265,7 @@ module.exports = class WalletClient {
       return Promise.resolve(
         await this.client.signTransaction(account, txnRequest)
       );
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -277,7 +277,7 @@ module.exports = class WalletClient {
   async submitTransaction(signedTxn) {
     try {
       return Promise.resolve(await this.client.submitTransaction(signedTxn));
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -312,7 +312,7 @@ module.exports = class WalletClient {
         }
       }
       return Promise.resolve(hashs);
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -324,7 +324,7 @@ module.exports = class WalletClient {
   async signMessage(account, message) {
     try {
       return Promise.resolve(account.signBuffer(Buffer.from(message)).hex());
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -385,7 +385,7 @@ module.exports = class WalletClient {
         return b.version - a.version;
       });
       return { success: true, transactions: sortedTransactions };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -400,7 +400,7 @@ module.exports = class WalletClient {
         success: true,
         transactionDetail: await this.client.getTransactionByVersion(version),
       });
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -415,7 +415,7 @@ module.exports = class WalletClient {
         success: true,
         transactionDetail: await this.client.getTransactionByHash(hash),
       });
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -445,7 +445,7 @@ module.exports = class WalletClient {
       const transactionRes = await this.client.submitTransaction(signedTxn);
       await this.client.waitForTransaction(transactionRes.hash);
       return await Promise.resolve({ success: true, hash: txnHash });
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
@@ -772,7 +772,7 @@ module.exports = class WalletClient {
         maxDepositSequenceNumber,
         maxWithdrawSequenceNumber,
       };
-    } catch (error) {
+    } catch (err) {
       return {
         success: false,
         err,
