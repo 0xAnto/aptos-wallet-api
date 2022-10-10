@@ -80,6 +80,31 @@ module.exports = class WalletClient {
       };
     }
   }
+
+  /**
+   * checks if the coinType is valid and return coinInfo
+   * @param coinType Resource type
+   * @returns coinInfo
+   */
+  async getCoinInfo(coinType) {
+    try {
+      let address = coinType.split("::")[0];
+      let coinInfoType = `0x1::coin::CoinInfo<${coinType}>`;
+      let resource = await this.client.getAccountResource(
+        address,
+        coinInfoType
+      );
+      return {
+        success: true,
+        coinInfo: resource.data,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        err,
+      };
+    }
+  }
   /**
    * checks if the receiver has the resource or not
    * @param receiver_address receiver address
