@@ -30,7 +30,7 @@ module.exports = class WalletClient {
    * @param
    * @returns AptosAccount object, mnemonic
    */
-  static createNewAccount() {
+  async createNewAccount() {
     try {
       const mnemonic = bip39.generateMnemonic(english.wordlist);
       const derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/0'`;
@@ -55,7 +55,7 @@ module.exports = class WalletClient {
    * @returns AptosAccount object
    */
 
-  static getAccountFromMnemonic(mnemonic, derivationValue) {
+  async getAccountFromMnemonic(mnemonic, derivationValue) {
     try {
       const derivationPath = `m/44'/${COIN_TYPE}'/${derivationValue}'/0'/0'`;
       const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
