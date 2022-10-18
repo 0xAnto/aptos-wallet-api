@@ -2,7 +2,6 @@ const {
   AptosAccount,
   AptosClient,
   FaucetClient,
-  HexString,
   TokenClient,
 } = require("aptos");
 const bip39 = require("@scure/bip39");
@@ -234,7 +233,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "2000",
+          max_gas_amount: "4000",
           gas_unit_price: "100",
         }
       );
@@ -654,131 +653,92 @@ module.exports = class WalletClient {
       };
     }
   }
+  // /**
+  //  * Opt in to receive nft transfers from other accounts
+  //  *
+  //  * @param account AptosAccount which has to opt in for receiving nft transfers
+  //  * @param optIn Boolean value of whether to opt in or not
+  //  * @returns The hash of the transaction submitted to the API
+  //  */
+  // async optInDirectTransfer(account, optIn) {
+  //   try {
+  //     const payload = {
+  //       function: "0x3::token::opt_in_direct_transfer",
+  //       type_arguments: [],
+  //       arguments: [optIn],
+  //     };
 
-  /**
-   * cancels an NFT offer
-   *
-   * @param account AptosAccount of the signing account
-   * @param receiver_address address of the receiver account
-   * @param creator_address address of the creator account
-   * @param collection_name collection name
-   * @param token_name NFT name
-   * @returns transaction hash
-   */
-  async cancelTokenOffer(
-    account,
-    receiver_address,
-    creator_address,
-    collection_name,
-    token_name,
-    property_version = 0
-  ) {
-    try {
-      return Promise.resolve({
-        success: true,
-        cancelOfferDetail: await this.token.cancelTokenOffer(
-          account,
-          receiver_address,
-          creator_address,
-          collection_name,
-          token_name,
-          property_version
-        ),
-      });
-    } catch (err) {
-      return {
-        success: false,
-        err,
-      };
-    }
-  }
+  //     const rawTxn = await this.client.generateTransaction(
+  //       account.address(),
+  //       payload
+  //     );
 
-  /**
-   * Opt in to receive nft transfers from other accounts
-   *
-   * @param account AptosAccount which has to opt in for receiving nft transfers
-   * @param optIn Boolean value of whether to opt in or not
-   * @returns The hash of the transaction submitted to the API
-   */
-  async optInDirectTransfer(account, optIn) {
-    try {
-      const payload = {
-        function: "0x3::token::opt_in_direct_transfer",
-        type_arguments: [],
-        arguments: [optIn],
-      };
+  //     const signedTxn = await this.client.signTransaction(account, rawTxn);
+  //     const transaction = await this.client.submitTransaction(signedTxn);
 
-      const rawTxn = await this.client.generateTransaction(
-        account.address(),
-        payload
-      );
+  //     await this.client.waitForTransaction(transaction.hash);
+  //     return {
+  //       success: true,
+  //       hash: transaction.hash,
+  //     };
+  //   } catch (err) {
+  //     return Promise.reject(err);
+  //   }
+  // }
 
-      const signedTxn = await this.client.signTransaction(account, rawTxn);
-      const transaction = await this.client.submitTransaction(signedTxn);
+  // /**
+  //  * Transfer the specified amount of tokens from account to receiver
+  //  * Receiver must have opted in for direct transfers
+  //  *
+  //  * @param sender AptosAccount where token from which tokens will be transfered
+  //  * @param receiver Hex-encoded 32 byte Aptos account address to which tokens will be transfered
+  //  * @param creator Hex-encoded 32 byte Aptos account address to which created tokens
+  //  * @param collectionName Name of collection where token is stored
+  //  * @param name Token name
+  //  * @param amount Amount of tokens which will be transfered
+  //  * @param propertyVersion the version of token PropertyMap with a default value 0.
+  //  * @returns The hash of the transaction submitted to the API
+  //  */
+  // async transferWithOptIn(
+  //   sender,
+  //   receiver,
+  //   creator,
+  //   collectionName,
+  //   name,
+  //   amount,
+  //   propertyVersion = 0
+  // ) {
+  //   try {
+  //     const payload = {
+  //       function: "0x3::token::transfer_with_opt_in",
+  //       type_arguments: [],
+  //       arguments: [
+  //         creator,
+  //         collectionName,
+  //         name,
+  //         propertyVersion,
+  //         receiver,
+  //         amount,
+  //       ],
+  //     };
 
-      await this.client.waitForTransaction(transaction.hash);
-      return {
-        success: true,
-        hash: transaction.hash,
-      };
-    } catch (err) {
-      return Promise.reject(err);
-    }
-  }
+  //     const rawTxn = await this.client.generateTransaction(
+  //       sender.address(),
+  //       payload
+  //     );
 
-  /**
-   * Transfer the specified amount of tokens from account to receiver
-   * Receiver must have opted in for direct transfers
-   *
-   * @param sender AptosAccount where token from which tokens will be transfered
-   * @param receiver Hex-encoded 32 byte Aptos account address to which tokens will be transfered
-   * @param creator Hex-encoded 32 byte Aptos account address to which created tokens
-   * @param collectionName Name of collection where token is stored
-   * @param name Token name
-   * @param amount Amount of tokens which will be transfered
-   * @param propertyVersion the version of token PropertyMap with a default value 0.
-   * @returns The hash of the transaction submitted to the API
-   */
-  async transferWithOptIn(
-    sender,
-    receiver,
-    creator,
-    collectionName,
-    name,
-    amount,
-    propertyVersion = 0
-  ) {
-    try {
-      const payload = {
-        function: "0x3::token::transfer_with_opt_in",
-        type_arguments: [],
-        arguments: [
-          creator,
-          collectionName,
-          name,
-          propertyVersion,
-          receiver,
-          amount,
-        ],
-      };
+  //     const signedTxn = await this.client.signTransaction(sender, rawTxn);
+  //     const transaction = await this.client.submitTransaction(signedTxn);
 
-      const rawTxn = await this.client.generateTransaction(
-        sender.address(),
-        payload
-      );
-
-      const signedTxn = await this.client.signTransaction(sender, rawTxn);
-      const transaction = await this.client.submitTransaction(signedTxn);
-
-      await this.client.waitForTransaction(transaction.hash);
-      return {
-        success: true,
-        hash: transaction.hash,
-      };
-    } catch (err) {
-      return Promise.reject(err);
-    }
-  }
+  //     await this.client.waitForTransaction(transaction.hash);
+  //     return {
+  //       success: true,
+  //       hash: transaction.hash,
+  //     };
+  //   } catch (err) {
+  //     return Promise.reject(err);
+  //   }
+  // }
 
   // get NFT IDs of the address
   async getEventStream(address, eventHandleStruct, fieldName, limit, start) {
@@ -909,77 +869,6 @@ module.exports = class WalletClient {
   }
 
   /**
-   * returns the tokens in an account
-   *
-   * @param address address of the desired account
-   * @returns list of tokens and their collection data
-   */
-  async getTokens(address, limit, depositStart, withdrawStart) {
-    try {
-      const { tokenIds } = await this.getTokenIds(
-        address,
-        limit,
-        depositStart,
-        withdrawStart
-      );
-      const tokens = [];
-      await Promise.all(
-        tokenIds.map(async (tokenId) => {
-          let resources;
-          if (cache.has(`resources--${tokenId.data.token_data_id.creator}`)) {
-            resources = cache.get(
-              `resources--${tokenId.data.token_data_id.creator}`
-            );
-          } else {
-            resources = await this.client.getAccountResources(
-              tokenId.data.token_data_id.creator
-            );
-            cache.set(
-              `resources--${tokenId.data.token_data_id.creator}`,
-              resources
-            );
-          }
-
-          const accountResource = resources.find(
-            (r) => r.type === "0x3::token::Collections"
-          );
-          const tableItemRequest = {
-            key_type: "0x3::token::TokenDataId",
-            value_type: "0x3::token::TokenData",
-            key: tokenId.data.token_data_id,
-          };
-
-          const cacheKey = JSON.stringify(tableItemRequest);
-
-          let token;
-          if (cache.has(cacheKey)) {
-            token = cache.get(cacheKey);
-          } else {
-            token = await this.client.getTableItem(
-              accountResource.data.token_data?.handle,
-              tableItemRequest
-            );
-            cache.set(cacheKey, token);
-          }
-          token.collection = tokenId.data.token_data_id.collection;
-          tokens.push({ token, sequence_number: tokenId.sequence_number });
-        })
-      );
-
-      return {
-        success: true,
-        tokens,
-      };
-    } catch (err) {
-      console.error(e);
-      return {
-        success: false,
-        err,
-      };
-    }
-  }
-
-  /**
    * returns the token information (including the collection information)
    * about a said tokenID
    *
@@ -1014,64 +903,6 @@ module.exports = class WalletClient {
         success: false,
         err,
       };
-    }
-  }
-
-  /**
-   * returns the resource handle for type 0x3::token::Collections
-   * about a said creator
-   *
-   * @param tokenId token ID of the desired token
-   * @returns resource information
-   */
-  async getTokenResourceHandle(tokenId) {
-    try {
-      const resources = await this.client.getAccountResources(
-        tokenId.token_data_id.creator
-      );
-      const accountResource = resources.find(
-        (r) => r.type === "0x3::token::Collections"
-      );
-      return {
-        success: true,
-        handle: accountResource.data.token_data.handle,
-      };
-    } catch (err) {
-      console.error(err);
-      return { success: false, err };
-    }
-  }
-
-  /**
-   * returns the information about a collection of an account
-   *
-   * @param address address of the desired account
-   * @param collectionName collection name
-   * @returns collection information
-   */
-  async getCollection(address, collectionName) {
-    try {
-      const resources = await this.client.getAccountResources(address);
-      const accountResource = resources.find(
-        (r) => r.type === "0x3::token::Collections"
-      );
-
-      const tableItemRequest = {
-        key_type: "0x1::string::String",
-        value_type: "0x3::token::Collection",
-        key: collectionName,
-      };
-      const collection = await this.client.getTableItem(
-        accountResource.data.collections.handle,
-        tableItemRequest
-      );
-      return {
-        success: true,
-        collection: collection,
-      };
-    } catch (err) {
-      console.error(err);
-      return { success: false, err };
     }
   }
 };
