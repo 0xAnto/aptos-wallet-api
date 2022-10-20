@@ -210,6 +210,40 @@ module.exports = class WalletClient {
   }
 
   /**
+   * transfers Aptos Coins from signer to receiver
+   *
+   * @param account AptosAccount object of the signing account
+   * @param recipient_address address of the receiver account
+   * @param amount amount of aptos coins to be transferred
+   * @returns transaction hash
+   */
+  async aptosTransfer(account, recipient_address, amount) {
+    try {
+      if (recipient_address.toString() === account.address().toString()) {
+        return new Error("cannot transfer coins to self");
+      }
+
+      const payload = {
+        function: "0x1::aptos_account::transfer",
+        type_arguments: [],
+        arguments: [recipient_address, amount],
+      };
+
+      const rawTxn = await this.client.generateTransaction(
+        account.address(),
+        payload
+      );
+
+      const signedTxn = await this.client.signTransaction(account, rawTxn);
+      const transaction = await this.client.submitTransaction(signedTxn);
+      await this.client.waitForTransaction(transaction.hash);
+      return await Promise.resolve(transaction.hash);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  /**
    * transfers Coins from signer to receiver
    *
    * @param account AptosAccount object of the signing account
