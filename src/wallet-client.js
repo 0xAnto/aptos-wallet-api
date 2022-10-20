@@ -147,13 +147,11 @@ module.exports = class WalletClient {
           }
         });
         return { success: true, isRegistered };
-      } else return { success: false, Error: "Address not valid" };
+      } else return { success: false, Error: "Address can not be empty" };
     } catch (err) {
-      let errorMsg = JSON.parse(err.message);
-      console.log("errorMsg", errorMsg);
       return {
         success: false,
-        error: errorMsg.error_code,
+        error: JSON.parse(err.message).error_code,
       };
     }
   }
