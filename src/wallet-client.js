@@ -149,9 +149,11 @@ module.exports = class WalletClient {
         return { success: true, isRegistered };
       } else return { success: false, Error: "Address not valid" };
     } catch (err) {
+      let errorMsg = JSON.parse(err.message);
+      console.log("errorMsg", errorMsg);
       return {
         success: false,
-        err,
+        error: errorMsg.error_code,
       };
     }
   }
@@ -233,7 +235,6 @@ module.exports = class WalletClient {
         account.address(),
         payload
       );
-
       const signedTxn = await this.client.signTransaction(account, rawTxn);
       const transaction = await this.client.submitTransaction(signedTxn);
       await this.client.waitForTransaction(transaction.hash);
