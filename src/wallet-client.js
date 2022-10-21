@@ -231,14 +231,22 @@ module.exports = class WalletClient {
 
       const rawTxn = await this.client.generateTransaction(
         account.address(),
-        payload
+        payload,
+        {
+          max_gas_amount: "20000",
+          gas_unit_price: "100",
+        }
       );
       const signedTxn = await this.client.signTransaction(account, rawTxn);
       const transaction = await this.client.submitTransaction(signedTxn);
       await this.client.waitForTransaction(transaction.hash);
-      return await Promise.resolve(transaction.hash);
+
+      return { success: true, hash: transaction.hash };
     } catch (err) {
-      return Promise.reject(err);
+      return {
+        success: false,
+        err,
+      };
     }
   }
 
@@ -266,7 +274,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "4000",
+          max_gas_amount: "20000",
           gas_unit_price: "100",
         }
       );
@@ -299,7 +307,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "4000",
+          max_gas_amount: "20000",
           gas_unit_price: "100",
         }
       );
@@ -360,7 +368,10 @@ module.exports = class WalletClient {
           const txnRequest = await this.client.generateTransaction(
             rawTxn.sender,
             rawTxn.payload,
-            rawTxn.options
+            {
+              max_gas_amount: "200000",
+              gas_unit_price: "100",
+            }
           );
 
           const signedTxn = await this.client.signTransaction(
@@ -503,7 +514,7 @@ module.exports = class WalletClient {
         account.address(),
         entryFunctionPayload,
         {
-          max_gas_amount: "2000",
+          max_gas_amount: "20000",
           gas_unit_price: "100",
         }
       );
