@@ -233,7 +233,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "20000",
+          max_gas_amount: "50000",
           gas_unit_price: "100",
         }
       );
@@ -274,7 +274,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "20000",
+          max_gas_amount: "50000",
           gas_unit_price: "100",
         }
       );
@@ -307,7 +307,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "20000",
+          max_gas_amount: "50000",
           gas_unit_price: "100",
         }
       );
@@ -351,9 +351,16 @@ module.exports = class WalletClient {
   }
 
   // sign and submit a transaction
-
   async signAndSubmitTransaction(account, txnRequest) {
-    const signedTxn = await this.client.signTransaction(account, txnRequest);
+    const request = await this.client.generateTransaction(
+      txnRequest.sender,
+      txnRequest.payload,
+      {
+        max_gas_amount: "50000",
+        gas_unit_price: "100",
+      }
+    );
+    const signedTxn = await this.client.signTransaction(account, request);
     const res = await this.client.submitTransaction(signedTxn);
     await this.client.waitForTransaction(res.hash);
     return Promise.resolve(res.hash);
@@ -369,7 +376,7 @@ module.exports = class WalletClient {
             rawTxn.sender,
             rawTxn.payload,
             {
-              max_gas_amount: "200000",
+              max_gas_amount: "50000",
               gas_unit_price: "100",
             }
           );
@@ -401,6 +408,22 @@ module.exports = class WalletClient {
   async signMessage(account, message) {
     try {
       return Promise.resolve(account.signBuffer(Buffer.from(message)).hex());
+    } catch (err) {
+      return {
+        success: false,
+        err,
+      };
+    }
+  }
+
+  // wait for transaction to complete and return txn data
+  async waitForTxnResult(hash) {
+    try {
+      let result = await this.client.waitForTransactionWithResult(hash);
+      return {
+        success: true,
+        result,
+      };
     } catch (err) {
       return {
         success: false,
@@ -514,7 +537,7 @@ module.exports = class WalletClient {
         account.address(),
         entryFunctionPayload,
         {
-          max_gas_amount: "20000",
+          max_gas_amount: "50000",
           gas_unit_price: "100",
         }
       );
