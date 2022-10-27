@@ -1,5 +1,10 @@
 # Aptos Wallet Client Api
 
+## Installation
+```
+npm i aptos-wallet-api
+```
+
 ### Initialize WalletClient
 
 ```
