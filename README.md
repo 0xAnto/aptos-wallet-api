@@ -4,6 +4,10 @@
 ```
 npm i aptos-wallet-api
 ```
+## Usage
+```
+const WalletClient = require("aptos-wallet-api/src/wallet-client");
+```
 
 ### Initialize WalletClient
 
