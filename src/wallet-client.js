@@ -33,10 +33,10 @@ module.exports = class WalletClient {
     try {
       const mnemonic = bip39.generateMnemonic(wordlist);
       const derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/0'`;
-      const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
+      const data = AptosAccount.fromDerivePath(derivationPath, mnemonic);
       return {
         success: true,
-        account,
+        data,
       };
     } catch (err) {
       return {
