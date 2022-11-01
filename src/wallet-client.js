@@ -5,7 +5,7 @@ const {
   TokenClient,
 } = require("aptos");
 const bip39 = require("@scure/bip39");
-const english = require("@scure/bip39/wordlists/english");
+const { wordlist } = require("@scure/bip39/wordlists/english");
 const fetch = require("cross-fetch");
 
 const COIN_TYPE = 637;
@@ -31,7 +31,7 @@ module.exports = class WalletClient {
    */
   async createNewAccount() {
     try {
-      const mnemonic = bip39.generateMnemonic(english.wordlist);
+      const mnemonic = bip39.generateMnemonic(wordlist);
       const derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/0'`;
       const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
       return {
@@ -56,9 +56,16 @@ module.exports = class WalletClient {
 
   async getAccountFromMnemonic(mnemonic, derivationValue) {
     try {
+      let isValid = bip39.validateMnemonic(mnemonic, wordlist);
+      if (!isValid) {
+        return Promise.resolve({
+          success: false,
+          data: "Invalid Seed Phrase",
+        });
+      }
       const derivationPath = `m/44'/${COIN_TYPE}'/${derivationValue}'/0'/0'`;
-      const account = AptosAccount.fromDerivePath(derivationPath, mnemonic);
-      return Promise.resolve({ success: true, account });
+      const data = AptosAccount.fromDerivePath(derivationPath, mnemonic);
+      return Promise.resolve({ success: true, data });
     } catch (err) {
       return {
         success: false,
