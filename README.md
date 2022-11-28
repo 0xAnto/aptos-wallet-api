@@ -1,4 +1,5 @@
 # Aptos Wallet Client Api
+A light weight wallet api for aptos blockchain
 
 ## Installation
 ```
