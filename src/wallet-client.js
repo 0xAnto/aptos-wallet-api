@@ -240,8 +240,8 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "50000",
-          gas_unit_price: "100",
+          max_gas_amount: await this.getMaxGas(account.address()),
+          gas_unit_price: await this.getGasUnitPrice(),
         }
       );
       const signedTxn = await this.client.signTransaction(account, rawTxn);
@@ -281,8 +281,8 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "50000",
-          gas_unit_price: "100",
+          max_gas_amount: await this.getMaxGas(account.address()),
+          gas_unit_price: await this.getGasUnitPrice(),
         }
       );
 
@@ -314,8 +314,8 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: "50000",
-          gas_unit_price: "100",
+          max_gas_amount: await this.getMaxGas(account.address()),
+          gas_unit_price: await this.getGasUnitPrice(),
         }
       );
       const simulateResponse = await this.client.simulateTransaction(
@@ -323,6 +323,61 @@ module.exports = class WalletClient {
         rawTxn
       );
       return { success: true, gas_used: simulateResponse[0].gas_used };
+    } catch (err) {
+      return {
+        success: false,
+        err,
+      };
+    }
+  }
+
+  // Return gas unit price
+  async getGasUnitPrice() {
+    try {
+      let gas_unit_price = await this.client.estimateGasPrice();
+      return gas_unit_price.gas_estimate;
+    } catch (err) {
+      return {
+        success: false,
+        err,
+      };
+    }
+  }
+
+  // Return prioritized gas unit price
+  async getPrioritizedGasUnitPrice() {
+    try {
+      let gas_unit_price = await this.client.estimateGasPrice();
+      return gas_unit_price.prioritized_gas_estimate;
+    } catch (err) {
+      return {
+        success: false,
+        err,
+      };
+    }
+  }
+
+  // Return max gas
+  async getMaxGas(address) {
+    return await this.client.estimateMaxGasAmount(address);
+  }
+
+  // Simulate transaction
+  async simulateTransaction(account, payload) {
+    try {
+      const rawTxn = await this.client.generateTransaction(
+        account.address(),
+        payload,
+        {
+          max_gas_amount: await this.getMaxGas(account.address()),
+          gas_unit_price: await this.getGasUnitPrice(),
+        }
+      );
+      const simulateResponse = await this.client.simulateTransaction(
+        account,
+        rawTxn
+      );
+      return { success: true, data: simulateResponse };
     } catch (err) {
       return {
         success: false,
@@ -363,8 +418,8 @@ module.exports = class WalletClient {
       txnRequest.sender,
       txnRequest.payload,
       {
-        max_gas_amount: "50000",
-        gas_unit_price: "100",
+        max_gas_amount: await this.getMaxGas(account.address()),
+        gas_unit_price: await this.getGasUnitPrice(),
       }
     );
     const signedTxn = await this.client.signTransaction(account, request);
@@ -383,8 +438,8 @@ module.exports = class WalletClient {
             rawTxn.sender,
             rawTxn.payload,
             {
-              max_gas_amount: "50000",
-              gas_unit_price: "100",
+              max_gas_amount: await this.getMaxGas(account.address()),
+              gas_unit_price: await this.getGasUnitPrice(),
             }
           );
 
@@ -544,8 +599,8 @@ module.exports = class WalletClient {
         account.address(),
         entryFunctionPayload,
         {
-          max_gas_amount: "50000",
-          gas_unit_price: "100",
+          max_gas_amount: await this.getMaxGas(account.address()),
+          gas_unit_price: await this.getGasUnitPrice(),
         }
       );
       const signedTxn = await this.client.signTransaction(account, txnRequest);
