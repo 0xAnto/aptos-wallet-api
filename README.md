@@ -14,8 +14,8 @@ const WalletClient = require("aptos-wallet-api/src/wallet-client");
 ### Initialize WalletClient
 
 ```
-const NODE_URL = "https://fullnode.devnet.aptoslabs.com/v1";
-const FAUCET_URL = "https://faucet.devnet.aptoslabs.com";
+const NODE_URL = "https://fullnode.testnet.aptoslabs.com/v1";
+const FAUCET_URL = "https://faucet.net.aptoslabs.com";
 
 const walletClient = new WalletClient(NODE_URL, FAUCET_URL);
 ```
