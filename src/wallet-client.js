@@ -331,6 +331,23 @@ module.exports = class WalletClient {
     }
   }
 
+  // Verify if the address is valid
+  async verifyAddress(address) {
+    try {
+      let account = await this.client.getAccount(address);
+      return {
+        success: true,
+        result: "valid",
+        sequence: account.sequence_number,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message,
+      };
+    }
+  }
+
   // Return gas unit price
   async getGasUnitPrice() {
     try {

@@ -1,11 +1,15 @@
 # Aptos Wallet Client Api
-A light weight wallet api for aptos blockchain
+
+A light weight wallet client built for aptos blockchain
 
 ## Installation
+
 ```
 npm i aptos-wallet-api
 ```
+
 ## Usage
+
 ```
 const WalletClient = require("aptos-wallet-api/src/wallet-client");
 ```
