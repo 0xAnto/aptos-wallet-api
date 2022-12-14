@@ -8,7 +8,7 @@ A light weight wallet client built for aptos blockchain
 npm i aptos-wallet-api
 ```
 
-## Usage
+### Usage
 
 ```bash
 const WalletClient = require("aptos-wallet-api/src/wallet-client");
