@@ -75,6 +75,23 @@ module.exports = class WalletClient {
   }
 
   /**
+   * returns an AptosAccount object given a private key and
+   * address of the account
+   *
+   * @param privateKey Private key of an account as a Buffer
+   * @returns AptosAccount object
+   */
+
+  async getAccountFromPrivateKey(privateKey) {
+    let privateKeyBuffer = new Uint8Array(privateKey.length / 2);
+    for (let i = 0; i < privateKey.length; i += 2) {
+      privateKeyBuffer[i / 2] = parseInt(privateKey.substr(i, 2), 16);
+    }
+
+    return new AptosAccount(privateKeyBuffer, "");
+  }
+
+  /**
    * returns all tokens available in the account with their balance
    *
    * @param address address of the account
