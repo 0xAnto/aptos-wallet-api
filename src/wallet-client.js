@@ -240,7 +240,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: await this.getMaxGas(account.address()),
+          max_gas_amount: 100000,
           gas_unit_price: await this.getGasUnitPrice(),
         }
       );
@@ -281,7 +281,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: await this.getMaxGas(account.address()),
+          max_gas_amount: 100000,
           gas_unit_price: await this.getGasUnitPrice(),
         }
       );
@@ -314,7 +314,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: await this.getMaxGas(account.address()),
+          max_gas_amount: 100000,
           gas_unit_price: await this.getGasUnitPrice(),
         }
       );
@@ -386,7 +386,7 @@ module.exports = class WalletClient {
         account.address(),
         payload,
         {
-          max_gas_amount: await this.getMaxGas(account.address()),
+          max_gas_amount: 100000,
           gas_unit_price: await this.getGasUnitPrice(),
         }
       );
@@ -435,7 +435,7 @@ module.exports = class WalletClient {
       txnRequest.sender,
       txnRequest.payload,
       {
-        max_gas_amount: await this.getMaxGas(account.address()),
+        max_gas_amount: 100000,
         gas_unit_price: await this.getGasUnitPrice(),
       }
     );
@@ -455,7 +455,7 @@ module.exports = class WalletClient {
             rawTxn.sender,
             rawTxn.payload,
             {
-              max_gas_amount: await this.getMaxGas(account.address()),
+              max_gas_amount: 100000,
               gas_unit_price: await this.getGasUnitPrice(),
             }
           );
@@ -616,7 +616,7 @@ module.exports = class WalletClient {
         account.address(),
         entryFunctionPayload,
         {
-          max_gas_amount: await this.getMaxGas(account.address()),
+          max_gas_amount: 100000,
           gas_unit_price: await this.getGasUnitPrice(),
         }
       );
