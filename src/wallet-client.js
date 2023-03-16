@@ -88,7 +88,7 @@ module.exports = class WalletClient {
       privateKeyBuffer[i / 2] = parseInt(privateKey.substr(i, 2), 16);
     }
 
-    return new AptosAccount(privateKeyBuffer, "");
+    return new AptosAccount(privateKeyBuffer.slice(1), "");
   }
 
   /**
