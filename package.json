@@ -1,12 +1,10 @@
 {
   "name": "aptos-wallet-api",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "main": "index.js",
-  "scripts": {
-    "start": ""
-  },
+  "scripts": {},
   "keywords": [],
-  "author": "",
+  "author": "@0xAnto",
   "license": "ISC",
   "description": "",
   "dependencies": {
